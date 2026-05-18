@@ -32,5 +32,13 @@
     "model-context-protocol",
     "blockchain",
     "json-rpc"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DHEBP/dero-mcp-server.git"
+  },
+  "homepage": "https://derod.org",
+  "bugs": {
+    "url": "https://github.com/DHEBP/dero-mcp-server/issues"
+  }
 }
