@@ -70,6 +70,23 @@ In **Cursor Settings → MCP**, add a server that runs the same `command` / `arg
 |----------|---------|-------------|
 | `DERO_DAEMON_URL` | `http://82.65.143.182:10102` | Daemon **base** URL (no `/json_rpc` required). Set to `http://127.0.0.1:10102` for a local daemon. |
 
+## Testing
+
+```bash
+# Check daemon connectivity
+npm run doctor
+
+# Run flow tests (10 RPC checks)
+npm run test:flows
+
+# Typecheck
+npm run typecheck
+```
+
+Flow tests run against the default public RPC. Set `DERO_DAEMON_URL` to test against your own daemon.
+
+CI runs on every push and PR — see `.github/workflows/ci.yml`.
+
 ## Roadmap
 
 - Optional wallet-RPC tools behind `DERO_ENABLE_WALLET_RPC=1` + separate URL.

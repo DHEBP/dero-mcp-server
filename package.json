@@ -15,7 +15,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "node --import tsx src/index.ts",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "doctor": "./scripts/doctor.sh",
+    "test:flows": "npx tsx scripts/flow-test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
