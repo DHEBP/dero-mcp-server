@@ -1,5 +1,6 @@
 # DERO MCP server
 
+[![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
 [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, or any MCP client that launches a local process over stdio.
