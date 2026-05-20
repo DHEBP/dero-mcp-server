@@ -1,0 +1,102 @@
+name: Refresh docs bundle
+
+# Level 2: Actions → Refresh docs bundle → Run workflow
+# Level 3: dero-docs push to main → repository_dispatch → this workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      dero_docs_ref:
+        description: 'dero-docs git ref to index (branch, tag, or SHA)'
+        required: false
+        default: main
+  repository_dispatch:
+    types: [dero-docs-updated]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-docs-bundle
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve dero-docs ref
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            REF="${{ github.event.client_payload.ref }}"
+            if [ -z "$REF" ]; then REF="main"; fi
+            SOURCE="dero-docs push (${REF})"
+          else
+            REF="${{ inputs.dero_docs_ref }}"
+            if [ -z "$REF" ]; then REF="main"; fi
+            SOURCE="manual workflow_dispatch (${REF})"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout dero-mcp-server
+        uses: actions/checkout@v4
+        with:
+          path: dero-mcp-server
+
+      - name: Checkout dero-docs
+        uses: actions/checkout@v4
+        with:
+          repository: DHEBP/dero-docs
+          ref: ${{ steps.meta.outputs.ref }}
+          path: dero-docs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dero-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: dero-mcp-server
+        run: npm ci
+
+      - name: Build bundled docs index
+        working-directory: dero-mcp-server
+        env:
+          DERO_DOCS_ROOT: ${{ github.workspace }}/dero-docs
+        run: npm run build:docs
+
+      - name: Smoke test bundled docs
+        working-directory: dero-mcp-server
+        run: npm run build && npm run smoke:docs
+
+      - name: Open PR when bundle changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          path: dero-mcp-server
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: refresh/docs-index-${{ github.run_id }}
+          delete-branch: true
+          title: 'Refresh bundled docs index'
+          commit-message: 'Refresh bundled docs index from dero-docs.'
+          body: |
+            ## Summary
+            Rebuilt `data/docs-index.json` from [dero-docs](https://github.com/DHEBP/dero-docs) @ `${{ steps.meta.outputs.ref }}`.
+
+            **Trigger:** ${{ steps.meta.outputs.source }}
+
+            ## After merge
+            1. Bump patch version in `package.json` and `server.json`
+            2. `npm publish --otp=...`
+            3. `mcp-publisher publish`
+
+            ## Test plan
+            - [x] `npm run build:docs`
+            - [x] `npm run smoke:docs`
+            - [ ] Review page count diff in `data/docs-index.json`
+          labels: |
+            docs
+            automation

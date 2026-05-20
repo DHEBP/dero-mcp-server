@@ -116,16 +116,31 @@ In **OpenCode MCP settings**, add a server with the same `command` / `args` / `e
 
 ## Maintainer: refresh bundled docs
 
-Before publishing a new npm version when `dero-docs` changed:
+Full runbook: [`docs/DOCS-BUNDLE-SYNC.md`](docs/DOCS-BUNDLE-SYNC.md)
+
+**Quick local refresh:**
 
 ```bash
-DERO_DOCS_ROOT=/path/to/dero-docs npm run build:docs
-npm run build
-npm publish
+npm run release:docs-check
+git add data/docs-index.json && git commit -m "Refresh bundled docs index."
+```
+
+**Automation (recommended):**
+
+| Level | What | Setup |
+|-------|------|--------|
+| **2** | Manual: Actions → *Refresh docs bundle* → merge PR | None — works now |
+| **3** | Auto PR when `dero-docs` `main` updates | Add `MCP_DOCS_SYNC_TOKEN` secret on `dero-docs` |
+| **4** | Auto `npm publish` | Not recommended (OTP + credential risk) |
+
+After merging a bundle PR, patch bump and publish:
+
+```bash
+npm publish --otp=YOUR_CODE
 mcp-publisher publish
 ```
 
-`prepack` runs `build:docs` automatically when `dero-docs` is available at `../dero-docs` or via `DERO_DOCS_ROOT`.
+`prepack` runs `build:docs` on publish when `../dero-docs` exists locally — still commit `data/docs-index.json` for CI.
 
 ## Testing
 
