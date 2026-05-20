@@ -114,33 +114,18 @@ In **OpenCode MCP settings**, add a server with the same `command` / `args` / `e
 | `DERO_DAEMON_URL` | `http://82.65.143.182:10102` | Daemon **base** URL (no `/json_rpc` required). Set to `http://127.0.0.1:10102` for a local daemon. |
 | `DERO_DOCS_ROOT` | bundled index | Optional dev override: path to a local `dero-docs` clone to index live MDX instead of the shipped bundle. |
 
-## Maintainer: refresh bundled docs
+## Maintainer: bundled docs
 
-Full runbook: [`docs/DOCS-BUNDLE-SYNC.md`](docs/DOCS-BUNDLE-SYNC.md)
-
-**Quick local refresh:**
+Docs tools read from `data/docs-index.json`, committed in this repo and shipped with the npm package. Rebuild the index when [dero-docs](https://github.com/DHEBP/dero-docs) changes:
 
 ```bash
 npm run release:docs-check
 git add data/docs-index.json && git commit -m "Refresh bundled docs index."
 ```
 
-**Automation (recommended):**
+Or run **Refresh docs bundle** under [Actions](https://github.com/DHEBP/dero-mcp-server/actions/workflows/refresh-docs-bundle.yml) to open a PR. Pushes to `dero-docs` `main` can trigger that workflow via `repository_dispatch` when `MCP_DOCS_SYNC_TOKEN` is configured on the docs repo.
 
-| Level | What | Setup |
-|-------|------|--------|
-| **2** | Manual: Actions → *Refresh docs bundle* → merge PR | None — works now |
-| **3** | Auto PR when `dero-docs` `main` updates | Add `MCP_DOCS_SYNC_TOKEN` secret on `dero-docs` |
-| **4** | Auto `npm publish` | Not recommended (OTP + credential risk) |
-
-After merging a bundle PR, patch bump and publish:
-
-```bash
-npm publish --otp=YOUR_CODE
-mcp-publisher publish
-```
-
-`prepack` runs `build:docs` on publish when `../dero-docs` exists locally — still commit `data/docs-index.json` for CI.
+After merging a bundle update: bump the patch version in `package.json` and `server.json`, then `npm publish --otp=...` and `mcp-publisher publish`.
 
 ## Testing
 
