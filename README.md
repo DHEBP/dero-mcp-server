@@ -9,7 +9,9 @@
 
 - Connects to `{DERO_DAEMON_URL}/json_rpc` (default `http://82.65.143.182:10102`).
 - Registers one MCP tool per common daemon method (`DERO.GetInfo`, `DERO.GetHeight`, `DERO.GetSC`, etc.).
+- Exposes MCP resources and prompts for consistent investigation workflows.
 - Returns JSON results as MCP text content.
+- Returns structured tool errors with `_meta.error` (`code`, `hint`, `retryable`) to help agents self-correct.
 
 **Not included (by design in v0.1):** wallet RPC (`transfer`, `scinvoke`), `DERO.SendRawTransaction`, `DERO.SubmitBlock`. Those can move funds or consensus data; add them only with explicit user consent and a locked-down setup.
 
@@ -77,6 +79,9 @@ In **Cursor Settings → MCP**, add a server that runs the same `command` / `arg
 # Check daemon connectivity
 npm run doctor
 
+# MCP surface contract checks (tools/resources/prompts + error probe)
+npm run smoke:mcp
+
 # Run flow tests (10 RPC checks)
 npm run test:flows
 
@@ -87,6 +92,63 @@ npm run typecheck
 Flow tests run against the default public RPC. Set `DERO_DAEMON_URL` to test against your own daemon.
 
 CI runs on every push and PR — see `.github/workflows/ci.yml`.
+
+## Official MCP Registry
+
+This server is published in the official MCP Registry as:
+
+- `io.github.DHEBP/dero-mcp-server`
+- Version: `0.1.1`
+- Transport: `stdio` (npm package)
+
+Publish flow (maintainers):
+
+```bash
+mcp-publisher validate
+mcp-publisher login github
+mcp-publisher publish
+```
+
+Verify listing:
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHEBP/dero-mcp-server"
+```
+
+## MCP Surface
+
+- **Tools (17):** daemon read and analysis methods (`dero_get_info`, `dero_get_sc`, `dero_get_transaction`, etc.)
+- **Resources (3):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`
+- **Prompts (3):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`
+
+## Error Contract
+
+When a tool call fails, the server returns a structured error payload in tool content:
+
+```json
+{
+  "ok": false,
+  "tool": "dero_get_sc",
+  "_meta": {
+    "error": {
+      "code": "RPC_UNREACHABLE",
+      "hint": "Confirm daemon is running and reachable, then rerun `npm run doctor`.",
+      "retryable": true,
+      "raw": "fetch failed"
+    }
+  }
+}
+```
+
+Common `code` values:
+
+- `INVALID_INPUT`
+- `RPC_INVALID_PARAMS`
+- `RPC_METHOD_NOT_FOUND`
+- `RPC_HTTP_ERROR`
+- `RPC_UNREACHABLE`
+- `RPC_INVALID_RESPONSE`
+- `TOOL_EXECUTION_ERROR`
 
 ## Roadmap
 

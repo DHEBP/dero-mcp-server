@@ -1,6 +1,7 @@
 {
   "name": "dero-mcp-server",
-  "version": "0.1.0",
+  "mcpName": "io.github.DHEBP/dero-mcp-server",
+  "version": "0.1.1",
   "description": "Model Context Protocol (MCP) server exposing DERO Stargate daemon JSON-RPC to Claude and other MCP clients",
   "type": "module",
   "license": "MIT",
@@ -17,6 +18,7 @@
     "dev": "node --import tsx src/index.ts",
     "prepack": "npm run build",
     "doctor": "./scripts/doctor.sh",
+    "smoke:mcp": "npx tsx scripts/mcp-smoke-probes.ts",
     "test:flows": "npx tsx scripts/flow-test.ts",
     "typecheck": "tsc --noEmit"
   },

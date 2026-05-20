@@ -207,6 +207,7 @@ Real conversations often combine multiple flows:
 3. **SCIDs are 64-character hex** — validate format before calling
 4. **Atomic units**: DERO amounts are in 1/100000 units (5 decimals)
 5. **Read-only boundary**: This MCP cannot send transactions, deploy contracts, or modify state. Guide users to wallet tools for writes.
+6. **Use structured errors**: failed tools return `_meta.error` with `code`, `hint`, and `retryable` for recovery logic.
 
 ---
 
@@ -223,3 +224,13 @@ If using Cursor, these skills complement the MCP tools:
 | `gnomon-indexer` | Discovering contracts by stored variables |
 
 The MCP provides **live chain reads**. Skills provide **workflow guidance** and access to wallet operations the MCP intentionally excludes.
+
+## Built-in MCP Prompts
+
+These prompts are available from `prompts/list`:
+
+- `network_health_check`
+- `inspect_smart_contract`
+- `trace_transaction`
+
+Use `prompts/get` with arguments, then execute the suggested tool sequence.

@@ -48,10 +48,10 @@ ping_response=$(curl -sS -m 10 -X POST "${DAEMON_URL}/json_rpc" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"DERO.Ping","id":1}' 2>/dev/null || echo '{"error":"curl_failed"}')
 
-if echo "$ping_response" | grep -q '"status":"OK"'; then
-  echo "   OK — daemon responded with status OK"
+if echo "$ping_response" | grep -Eq '"status":"OK"|"result":"Pong ?"' ; then
+  echo "   OK — daemon responded to ping"
 else
-  echo "   FAIL — DERO.Ping did not return status OK"
+  echo "   FAIL — DERO.Ping did not return a known success shape"
   echo "   Response: $ping_response"
   fail=$((fail + 1))
 fi

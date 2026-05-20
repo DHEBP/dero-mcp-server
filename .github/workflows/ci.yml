@@ -30,6 +30,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: MCP smoke probes
+        run: npm run smoke:mcp
+        env:
+          DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
+
       - name: Run flow tests
         run: npm run test:flows
         env:
