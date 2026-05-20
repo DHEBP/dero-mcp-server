@@ -1,9 +1,44 @@
 # DERO MCP server
 
+> **Model Context Protocol server for DERO chain inspection** — query daemon state, inspect smart contracts, trace transactions, and run read-only diagnostics from Cursor, OpenCode, Claude Desktop, or any MCP host.
+
+[![MCP Registry](https://img.shields.io/badge/MCP-io.github.DHEBP%2Fdero--mcp--server-blue)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHEBP/dero-mcp-server)
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, or any MCP client that launches a local process over stdio.
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.1.1` · **Transport:** `stdio` (npm package)
+
+---
+
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, **OpenCode**, or any MCP client that launches a local process over stdio.
+
+## Quick start
+
+### 1. Add this to your MCP host config
+
+```json
+{
+  "mcpServers": {
+    "dero-daemon": {
+      "command": "npx",
+      "args": ["-y", "dero-mcp-server"],
+      "env": {
+        "DERO_DAEMON_URL": "http://127.0.0.1:10102"
+      }
+    }
+  }
+}
+```
+
+Use your own daemon URL when possible. If `DERO_DAEMON_URL` is omitted, the server uses the default public RPC.
+
+### 2. Restart your MCP host
+
+### 3. Try a prompt
+
+> "Check if my DERO node is synced and summarize chain health."
+
+---
 
 ## What it does
 
@@ -44,7 +79,7 @@ The baked-in default is a **third-party** public RPC (`82.65.143.182:10102`) —
 
 Strip a trailing `/json_rpc` if you paste a full JSON-RPC URL — this server appends `/json_rpc`.
 
-## Claude Desktop
+## Claude Desktop (same pattern for OpenCode and Cursor)
 
 Add to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
@@ -61,11 +96,15 @@ Add to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claud
 
 Optional: add `"env": { "DERO_DAEMON_URL": "http://127.0.0.1:10102" }` if you use a **local** daemon instead of the default public RPC.
 
-Restart Claude Desktop.
+Restart Claude Desktop (or your OpenCode/Cursor host).
 
-## Cursor
+## Cursor (or OpenCode)
 
-In **Cursor Settings → MCP**, add a server that runs the same `command` / `args` / `env` as above.
+In **Cursor Settings → MCP** (or OpenCode MCP settings), add a server that runs the same `command` / `args` / `env` as above.
+
+## OpenCode
+
+In **OpenCode MCP settings**, add a server with the same `command` / `args` / `env` as above.
 
 ## Environment
 
@@ -94,12 +133,6 @@ Flow tests run against the default public RPC. Set `DERO_DAEMON_URL` to test aga
 CI runs on every push and PR — see `.github/workflows/ci.yml`.
 
 ## Official MCP Registry
-
-This server is published in the official MCP Registry as:
-
-- `io.github.DHEBP/dero-mcp-server`
-- Version: `0.1.1`
-- Transport: `stdio` (npm package)
 
 Publish flow (maintainers):
 

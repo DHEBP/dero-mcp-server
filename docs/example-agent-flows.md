@@ -1,6 +1,6 @@
 # Example Agent Flows
 
-How to use DERO MCP tools in multi-step conversations. These examples work in Cursor, Claude Desktop, or any MCP client with `dero-mcp-server` configured.
+How to use DERO MCP tools in multi-step conversations. These examples work in Cursor, OpenCode, Claude Desktop, or any MCP client with `dero-mcp-server` configured.
 
 ---
 
@@ -125,7 +125,7 @@ dero_get_sc({
 
 **Agent steps:**
 
-1. Validate DVM-BASIC syntax (use `dvm-basic` Cursor skill if available)
+1. Validate DVM-BASIC syntax (use `dvm-basic` in Cursor, or equivalent workflow in OpenCode)
 2. `dero_get_gas_estimate` with `sc: "<contract source>"`
 3. Report compute and storage costs
 
@@ -213,7 +213,7 @@ Real conversations often combine multiple flows:
 
 ## Related Skills
 
-If using Cursor, these skills complement the MCP tools:
+If using Cursor or OpenCode, these skills complement the MCP tools:
 
 | Skill | Use for |
 |---|---|
