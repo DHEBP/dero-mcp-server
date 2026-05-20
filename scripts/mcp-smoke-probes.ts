@@ -34,6 +34,9 @@ const EXPECTED_TOOLS = [
   'dero_get_gas_estimate',
   'dero_name_to_address',
   'dero_get_block_template',
+  'dero_docs_search',
+  'dero_docs_get_page',
+  'dero_docs_list',
 ] as const
 
 const EXPECTED_RESOURCES = [

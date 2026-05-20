@@ -1,6 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { deroJsonRpc, jsonRpcEndpoint } from './rpc.js'
+import {
+  DERO_DOC_PRODUCTS,
+  getDeroDocPage,
+  listDeroDocs,
+  searchDeroDocs,
+} from './docs.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -36,6 +42,9 @@ const DERO_TOOL_NAMES = [
   'dero_get_gas_estimate',
   'dero_name_to_address',
   'dero_get_block_template',
+  'dero_docs_search',
+  'dero_docs_get_page',
+  'dero_docs_list',
 ] as const
 
 const DERO_RESOURCE_URIS = [
@@ -49,6 +58,8 @@ const DERO_PROMPT_NAMES = [
   'inspect_smart_contract',
   'trace_transaction',
 ] as const
+
+const deroDocProductSchema = z.enum(DERO_DOC_PRODUCTS)
 
 function toolText(data: unknown) {
   return {
@@ -74,6 +85,41 @@ function classifyToolError(error: unknown): StructuredToolError {
     return {
       code: 'INVALID_INPUT',
       hint: 'Pass exactly one of "hash" or "height".',
+      retryable: false,
+    }
+  }
+
+  if (
+    message.includes('DERO docs unavailable') ||
+    message.includes('bundled docs index is missing')
+  ) {
+    return {
+      code: 'DOCS_UNAVAILABLE',
+      hint: 'Bundled docs index is missing from this install. Reinstall dero-mcp-server or set DERO_DOCS_ROOT for local dev override.',
+      retryable: false,
+    }
+  }
+
+  if (message.includes('DERO docs search requires a non-empty query')) {
+    return {
+      code: 'INVALID_INPUT',
+      hint: 'Pass a non-empty "query" string for dero_docs_search.',
+      retryable: false,
+    }
+  }
+
+  if (message.includes('DERO docs get page requires a non-empty slug')) {
+    return {
+      code: 'INVALID_INPUT',
+      hint: 'Pass a non-empty "slug" for dero_docs_get_page.',
+      retryable: false,
+    }
+  }
+
+  if (message.includes('Doc page not found')) {
+    return {
+      code: 'DOC_NOT_FOUND',
+      hint: 'Use dero_docs_search or dero_docs_list to discover valid slugs, then retry.',
       retryable: false,
     }
   }
@@ -167,10 +213,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   const endpoint = jsonRpcEndpoint(daemonBaseUrl)
   const rpc = async <T>(method: string, params?: unknown) =>
     deroJsonRpc<T>(endpoint, method, params)
-
   const server = new McpServer({
     name: 'dero-daemon-mcp',
-    version: '0.1.0',
+    version: '0.1.2',
   })
 
   server.registerTool(
@@ -453,6 +498,86 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     }),
   )
 
+  server.registerTool(
+    'dero_docs_search',
+    {
+      description:
+        'Search bundled DERO documentation (derod/tela/hologram/deropay). Ships with npm package; optional DERO_DOCS_ROOT overrides for local dev.',
+      inputSchema: {
+        query: z
+          .string()
+          .min(1)
+          .describe('Search text (e.g., "wallet rpc", "tela deployment", "deropay webhooks")'),
+        product: deroDocProductSchema
+          .optional()
+          .describe('Optional docs product filter: derod | tela | hologram | deropay'),
+        section: z
+          .string()
+          .optional()
+          .describe('Optional section slug prefix (e.g., "rpc-api", "guides", "dero-pay")'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(25)
+          .optional()
+          .describe('Max matches (default 8, max 25)'),
+      },
+    },
+    withStructuredErrors('dero_docs_search', async ({ query, product, section, limit }) =>
+      searchDeroDocs({ query, product, section, limit })),
+  )
+
+  server.registerTool(
+    'dero_docs_get_page',
+    {
+      description:
+        'Get one docs page by slug (optionally scoped by product). Returns headings and normalized plain-text content.',
+      inputSchema: {
+        slug: z
+          .string()
+          .min(1)
+          .describe(
+            'Doc slug relative to pages/ (e.g., "rpc-api/daemon-rpc-api", "tutorials/first-app", "dero-pay/quick-start")',
+          ),
+        product: deroDocProductSchema
+          .optional()
+          .describe('Optional product scope to disambiguate duplicate slugs'),
+      },
+    },
+    withStructuredErrors('dero_docs_get_page', async ({ slug, product }) =>
+      getDeroDocPage({ slug, product })),
+  )
+
+  server.registerTool(
+    'dero_docs_list',
+    {
+      description:
+        'List indexed docs pages across derod/tela/hologram/deropay with slugs and canonical URLs.',
+      inputSchema: {
+        product: deroDocProductSchema
+          .optional()
+          .describe('Optional docs product filter: derod | tela | hologram | deropay'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe('Max pages returned (default 120, max 500)'),
+      },
+    },
+    withStructuredErrors('dero_docs_list', async ({ product, limit }) => {
+      const docsIndex = await listDeroDocs(product)
+      const capped = Math.max(1, Math.min(limit ?? 120, 500))
+      return {
+        ...docsIndex,
+        returned: Math.min(capped, docsIndex.pages.length),
+        pages: docsIndex.pages.slice(0, capped),
+      }
+    }),
+  )
+
   server.registerResource(
     'dero_mcp_server_info',
     'dero://mcp/server-info',
@@ -468,9 +593,12 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: JSON.stringify(
             {
               name: 'dero-daemon-mcp',
-              version: '0.1.0',
+              version: '0.1.2',
               mode: 'read-only',
               endpoint: endpoint,
+              docs_products: DERO_DOC_PRODUCTS,
+              docs_delivery: 'bundled-index',
+              docs_dev_override_env: 'DERO_DOCS_ROOT',
               tools: DERO_TOOL_NAMES,
               resources: DERO_RESOURCE_URIS,
               prompts: DERO_PROMPT_NAMES,

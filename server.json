@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.DHEBP/dero-mcp-server",
   "title": "DERO MCP Server",
-  "description": "Read-only DERO daemon MCP tools for chain inspection and analysis.",
-  "version": "0.1.1",
+  "description": "Read-only DERO daemon MCP tools plus bundled derod/tela/hologram/deropay documentation.",
+  "version": "0.1.2",
   "websiteUrl": "https://derod.org",
   "repository": {
     "url": "https://github.com/DHEBP/dero-mcp-server",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dero-mcp-server",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       }

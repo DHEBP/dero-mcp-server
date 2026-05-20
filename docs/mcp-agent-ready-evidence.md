@@ -1,7 +1,7 @@
 # DERO MCP Agent-Ready Evidence
 
-**Last updated:** 2026-05-19  
-**Repo:** `DHEBP/dero-mcp-server` @ `6630dee`  
+**Last updated:** 2026-05-20  
+**Repo:** `DHEBP/dero-mcp-server` (working tree)  
 **Mode:** Local stdio MCP (read-only daemon access)
 
 ---
@@ -16,7 +16,7 @@ DERO MCP is **agent-ready for local stdio usage**: surface contract is stable, d
 
 | Primitive | Count | Notes |
 |---|---:|---|
-| Tools | 17 | Read-only daemon methods only |
+| Tools | 20 | Daemon reads + bundled docs (`dero_docs_*`, 145 pages) |
 | Resources | 3 | Server info, safety boundary, example flows |
 | Prompts | 3 | Network health, SC inspection, tx tracing |
 
@@ -32,7 +32,7 @@ npm run smoke:mcp
 
 Result (latest run):
 
-- `tools/list` parity: **17**
+- `tools/list` parity: **20**
 - `resources/list` parity: **3**
 - `prompts/list` parity: **3**
 - `prompts/get` check: **pass**

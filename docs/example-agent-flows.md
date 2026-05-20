@@ -186,6 +186,26 @@ dero_get_sc({
 
 ---
 
+## Flow 10: Docs Retrieval (DERO + TELA + Hologram + DeroPay)
+
+**User prompt:**
+> "Find the DeroPay webhook docs and summarize required fields."
+
+**Agent steps:**
+
+1. `dero_docs_search` with `query: "webhooks required fields", product: "deropay"`
+2. Pick the best hit and call `dero_docs_get_page` with returned `slug` and `product`
+3. Summarize from returned headings/content and cite the canonical URL
+
+**What to look for:**
+- `results[].canonical_url` points to the public docs page
+- `results[].headings` helps jump to relevant sections quickly
+- `dero_docs_get_page` returns normalized text for model-friendly summarization
+
+If you need browsing first, call `dero_docs_list` (optionally with `product`) to see available slugs.
+
+---
+
 ## Combining Flows
 
 Real conversations often combine multiple flows:

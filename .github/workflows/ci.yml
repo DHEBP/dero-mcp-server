@@ -35,6 +35,9 @@ jobs:
         env:
           DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
 
+      - name: Docs smoke probes
+        run: npm run smoke:docs
+
       - name: Run flow tests
         run: npm run test:flows
         env:

@@ -6,7 +6,7 @@
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.1.1` · **Transport:** `stdio` (npm package)
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.1.2` · **Transport:** `stdio` (npm package)
 
 ---
 
@@ -44,6 +44,7 @@ Use your own daemon URL when possible. If `DERO_DAEMON_URL` is omitted, the serv
 
 - Connects to `{DERO_DAEMON_URL}/json_rpc` (default `http://82.65.143.182:10102`).
 - Registers one MCP tool per common daemon method (`DERO.GetInfo`, `DERO.GetHeight`, `DERO.GetSC`, etc.).
+- Adds bundled docs retrieval tools for `derod`, `tela`, `hologram`, and `deropay` (ships inside the npm package — no local clone required).
 - Exposes MCP resources and prompts for consistent investigation workflows.
 - Returns JSON results as MCP text content.
 - Returns structured tool errors with `_meta.error` (`code`, `hint`, `retryable`) to help agents self-correct.
@@ -111,6 +112,20 @@ In **OpenCode MCP settings**, add a server with the same `command` / `args` / `e
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DERO_DAEMON_URL` | `http://82.65.143.182:10102` | Daemon **base** URL (no `/json_rpc` required). Set to `http://127.0.0.1:10102` for a local daemon. |
+| `DERO_DOCS_ROOT` | bundled index | Optional dev override: path to a local `dero-docs` clone to index live MDX instead of the shipped bundle. |
+
+## Maintainer: refresh bundled docs
+
+Before publishing a new npm version when `dero-docs` changed:
+
+```bash
+DERO_DOCS_ROOT=/path/to/dero-docs npm run build:docs
+npm run build
+npm publish
+mcp-publisher publish
+```
+
+`prepack` runs `build:docs` automatically when `dero-docs` is available at `../dero-docs` or via `DERO_DOCS_ROOT`.
 
 ## Testing
 
@@ -120,6 +135,9 @@ npm run doctor
 
 # MCP surface contract checks (tools/resources/prompts + error probe)
 npm run smoke:mcp
+
+# Docs retrieval checks (bundled index — no clone required)
+npm run smoke:docs
 
 # Run flow tests (10 RPC checks)
 npm run test:flows
@@ -150,7 +168,7 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHE
 
 ## MCP Surface
 
-- **Tools (17):** daemon read and analysis methods (`dero_get_info`, `dero_get_sc`, `dero_get_transaction`, etc.)
+- **Tools (20):** daemon read/analysis methods + docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
 - **Resources (3):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`
 - **Prompts (3):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`
 
