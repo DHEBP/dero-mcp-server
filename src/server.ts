@@ -8,6 +8,7 @@ import {
   searchDeroDocs,
 } from './docs.js'
 import { DERO_TOOL_NAMES, TOOL_DESCRIPTIONS } from './tool-descriptions.js'
+import { relatedDocsFor } from './citations.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -253,7 +254,11 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     readOnly({
       description: TOOL_DESCRIPTIONS.dero_get_info,
     }),
-    withStructuredErrors('dero_get_info', async () => rpc('DERO.GetInfo')),
+    withStructuredErrors('dero_get_info', async () => {
+      const result = (await rpc<Record<string, unknown>>('DERO.GetInfo')) ?? {}
+      const related_docs = relatedDocsFor('dero_get_info')
+      return { ...result, ...(related_docs ? { related_docs } : {}) }
+    }),
   )
 
   server.registerTool(
@@ -431,7 +436,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
         variables: variables ?? true,
       }
       if (topoheight !== undefined) params.topoheight = topoheight
-      return rpc('DERO.GetSC', params)
+      const result = (await rpc<Record<string, unknown>>('DERO.GetSC', params)) ?? {}
+      const related_docs = relatedDocsFor('dero_get_sc')
+      return { ...result, ...(related_docs ? { related_docs } : {}) }
     }),
   )
 
@@ -461,7 +468,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       if (args.sc) params.sc = args.sc
       if (args.sc_rpc) params.sc_rpc = args.sc_rpc
       if (args.signer) params.signer = args.signer
-      return rpc('DERO.GetGasEstimate', params)
+      const result = (await rpc<Record<string, unknown>>('DERO.GetGasEstimate', params)) ?? {}
+      const related_docs = relatedDocsFor('dero_get_gas_estimate')
+      return { ...result, ...(related_docs ? { related_docs } : {}) }
     }),
   )
 

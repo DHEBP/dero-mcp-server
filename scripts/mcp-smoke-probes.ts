@@ -174,6 +174,35 @@ async function main() {
     }
     console.log('OK  prompts/get     inspect_smart_contract')
 
+    const infoResult = await client.callTool({
+      name: 'dero_get_info',
+      arguments: {},
+    })
+    const infoPayload = parseFirstTextJson(
+      infoResult as { content: Array<{ type: string; text?: string }> },
+    ) as {
+      topoheight?: number
+      related_docs?: Array<{ source?: string; slug?: string; canonical_url?: string }>
+    }
+    if (typeof infoPayload.topoheight !== 'number') {
+      throw new Error('dero_get_info did not return a numeric topoheight')
+    }
+    if (!Array.isArray(infoPayload.related_docs) || infoPayload.related_docs.length === 0) {
+      throw new Error('dero_get_info missing related_docs (citation foundation)')
+    }
+    for (const cite of infoPayload.related_docs) {
+      if (
+        cite.source !== 'dero_docs' ||
+        typeof cite.slug !== 'string' ||
+        typeof cite.canonical_url !== 'string'
+      ) {
+        throw new Error('dero_get_info related_docs entry missing required fields')
+      }
+    }
+    console.log(
+      `OK  tools/call      dero_get_info related_docs (${infoPayload.related_docs.length} citation(s))`,
+    )
+
     const structuredErrorProbe = await client.callTool({
       name: 'dero_get_block',
       arguments: {},
