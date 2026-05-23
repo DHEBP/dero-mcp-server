@@ -7,6 +7,7 @@ import {
   listDeroDocs,
   searchDeroDocs,
 } from './docs.js'
+import { DERO_TOOL_NAMES, TOOL_DESCRIPTIONS } from './tool-descriptions.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -23,29 +24,6 @@ const deroAddressSchema = z
   .regex(/^(dero1|deto1)[0-9a-z]+$/i, 'Expected DERO address starting with dero1 or deto1')
 
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
-
-const DERO_TOOL_NAMES = [
-  'dero_daemon_ping',
-  'dero_daemon_echo',
-  'dero_get_info',
-  'dero_get_height',
-  'dero_get_block_count',
-  'dero_get_last_block_header',
-  'dero_get_block',
-  'dero_get_block_header_by_topo_height',
-  'dero_get_block_header_by_hash',
-  'dero_get_tx_pool',
-  'dero_get_random_address',
-  'dero_get_transaction',
-  'dero_get_encrypted_balance',
-  'dero_get_sc',
-  'dero_get_gas_estimate',
-  'dero_name_to_address',
-  'dero_get_block_template',
-  'dero_docs_search',
-  'dero_docs_get_page',
-  'dero_docs_list',
-] as const
 
 const DERO_RESOURCE_URIS = [
   'dero://mcp/server-info',
@@ -209,6 +187,39 @@ function withStructuredErrors<TArgs extends Record<string, unknown> | undefined>
   }
 }
 
+/**
+ * MCP tool annotation hint block applied to every tool in this server.
+ *
+ * - `readOnlyHint: true` lets MCP hosts (Cursor, Claude Desktop, OpenCode)
+ *   auto-approve calls without per-invocation confirmation.
+ * - `destructiveHint: false` makes the read-only promise explicit so hosts
+ *   render a safe-call badge.
+ * - `idempotentHint: false` because chain state advances between calls —
+ *   identical inputs may return different blocks/heights/tx pools.
+ * - `openWorldHint: false` because we hit a configured daemon endpoint only,
+ *   not arbitrary external services.
+ *
+ * Any future wallet/write tools MUST use a different annotation block
+ * (`readOnlyHint: false`, `destructiveHint: true`) and remain require-approval.
+ */
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+} as const
+
+/**
+ * Helper that tags a tool config with the read-only annotation block.
+ * Use for every primitive in this v0.1 server. Composites built on these
+ * primitives are also read-only and should use this same helper.
+ */
+function readOnly<T extends Record<string, unknown>>(
+  config: T,
+): T & { annotations: typeof READ_ONLY_ANNOTATIONS } {
+  return { ...config, annotations: READ_ONLY_ANNOTATIONS }
+}
+
 export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   const endpoint = jsonRpcEndpoint(daemonBaseUrl)
   const rpc = async <T>(method: string, params?: unknown) =>
@@ -220,61 +231,59 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_daemon_ping',
-    {
-      description:
-        'DERO daemon connectivity check. Calls DERO.Ping. No parameters.',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_daemon_ping,
+    }),
     withStructuredErrors('dero_daemon_ping', async () => rpc<string>('DERO.Ping')),
   )
 
   server.registerTool(
     'dero_daemon_echo',
-    {
-      description: 'Echo strings through the daemon (DERO.Echo).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_daemon_echo,
       inputSchema: {
         words: z.array(z.string()).describe('Strings to echo back'),
       },
-    },
+    }),
     withStructuredErrors('dero_daemon_echo', async ({ words }) => rpc<string>('DERO.Echo', words)),
   )
 
   server.registerTool(
     'dero_get_info',
-    {
-      description:
-        'Get daemon / chain info: height, difficulty, version, mempool size, etc. (DERO.GetInfo).',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_info,
+    }),
     withStructuredErrors('dero_get_info', async () => rpc('DERO.GetInfo')),
   )
 
   server.registerTool(
     'dero_get_height',
-    {
-      description: 'Get top block height and stable/topo heights (DERO.GetHeight).',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_height,
+    }),
     withStructuredErrors('dero_get_height', async () => rpc('DERO.GetHeight')),
   )
 
   server.registerTool(
     'dero_get_block_count',
-    {
-      description: 'Total block count (DERO.GetBlockCount).',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_block_count,
+    }),
     withStructuredErrors('dero_get_block_count', async () => rpc('DERO.GetBlockCount')),
   )
 
   server.registerTool(
     'dero_get_last_block_header',
-    {
-      description: 'Header of the tip block (DERO.GetLastBlockHeader).',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_last_block_header,
+    }),
     withStructuredErrors('dero_get_last_block_header', async () => rpc('DERO.GetLastBlockHeader')),
   )
 
   server.registerTool(
     'dero_get_block',
-    {
-      description: 'Fetch a full block by height or hash (DERO.GetBlock). Provide one of hash or height.',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_block,
       inputSchema: {
         hash: hex64Schema
           .optional()
@@ -286,7 +295,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Block height'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_block', async (args) => {
       if (!args.hash && args.height === undefined) {
         throw new Error('Provide either hash or height')
@@ -300,8 +309,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_get_block_header_by_topo_height',
-    {
-      description: 'Block header by topological height (DERO.GetBlockHeaderByTopoHeight).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_block_header_by_topo_height,
       inputSchema: {
         topoheight: z
           .number()
@@ -309,42 +318,41 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .nonnegative()
           .describe('Topological height'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_block_header_by_topo_height', async ({ topoheight }) =>
       rpc('DERO.GetBlockHeaderByTopoHeight', { topoheight })),
   )
 
   server.registerTool(
     'dero_get_block_header_by_hash',
-    {
-      description: 'Block header by hash (DERO.GetBlockHeaderByHash).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_block_header_by_hash,
       inputSchema: {
         hash: hex64Schema.describe('Block top hash (hex)'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_block_header_by_hash', async ({ hash }) =>
       rpc('DERO.GetBlockHeaderByHash', { hash })),
   )
 
   server.registerTool(
     'dero_get_tx_pool',
-    {
-      description: 'Pending mempool transaction hashes (DERO.GetTxPool).',
-    },
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_tx_pool,
+    }),
     withStructuredErrors('dero_get_tx_pool', async () => rpc('DERO.GetTxPool')),
   )
 
   server.registerTool(
     'dero_get_random_address',
-    {
-      description:
-        'Random registered addresses from chain (for ring construction); optional asset scid (DERO.GetRandomAddress).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_random_address,
       inputSchema: {
         scid: hex64Schema
           .optional()
           .describe('Optional asset smart-contract id (hex)'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_random_address', async (args) =>
       rpc(
         'DERO.GetRandomAddress',
@@ -354,8 +362,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_get_transaction',
-    {
-      description: 'Fetch transactions by tx hashes (DERO.GetTransaction).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_transaction,
       inputSchema: {
         txs_hashes: z
           .array(hex64Schema)
@@ -367,7 +375,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Optional: decode each tx as JSON when non-zero'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_transaction', async ({ txs_hashes, decode_as_json }) => {
       const params: Record<string, unknown> = { txs_hashes }
       if (decode_as_json !== undefined) params.decode_as_json = decode_as_json
@@ -377,9 +385,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_get_encrypted_balance',
-    {
-      description:
-        'Encrypted balance blob for an address at a topo height (DERO.GetEncryptedBalance). Not cleartext balance.',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_encrypted_balance,
       inputSchema: {
         address: deroAddressSchema.describe('DERO address (dero1… or deto1…)'),
         topoheight: z
@@ -388,7 +395,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .describe('Use -1 for latest chain tip'),
         scid: hex64Schema.optional().describe('Asset SCID hex; omit for native DERO'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_encrypted_balance', async ({ address, topoheight, scid }) => {
       const params: Record<string, unknown> = { address, topoheight }
       if (scid) params.scid = scid
@@ -398,9 +405,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_get_sc',
-    {
-      description:
-        'Read smart contract code and/or variables by SCID (DERO.GetSC).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_sc,
       inputSchema: {
         scid: hex64Schema.describe('64-char hex Smart Contract ID'),
         code: z
@@ -417,7 +423,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Topo height; omit or use -1 for latest'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_sc', async ({ scid, code, variables, topoheight }) => {
       const params: Record<string, unknown> = {
         scid,
@@ -431,9 +437,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_get_gas_estimate',
-    {
-      description:
-        'Estimate gas (compute + storage) for transfers, deploy, or SC call (DERO.GetGasEstimate).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_gas_estimate,
       inputSchema: {
         transfers: z
           .array(z.record(z.unknown()))
@@ -449,7 +454,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Signer address used for estimation'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_gas_estimate', async (args) => {
       const params: Record<string, unknown> = {}
       if (args.transfers) params.transfers = args.transfers
@@ -462,8 +467,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_name_to_address',
-    {
-      description: 'Resolve a DERO on-chain name to address (DERO.NameToAddress).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_name_to_address,
       inputSchema: {
         name: z.string().min(1).describe('Registered name'),
         topoheight: z
@@ -471,16 +476,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .int()
           .describe('Use -1 for latest'),
       },
-    },
+    }),
     withStructuredErrors('dero_name_to_address', async ({ name, topoheight }) =>
       rpc('DERO.NameToAddress', { name, topoheight })),
   )
 
   server.registerTool(
     'dero_get_block_template',
-    {
-      description:
-        'Mining: get block template for a miner address (DERO.GetBlockTemplate).',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_get_block_template,
       inputSchema: {
         wallet_address: deroAddressSchema.describe('Miner payout DERO address'),
         block: z
@@ -489,7 +493,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .describe('Include block blob'),
         miner: z.string().optional().describe('Optional miner id / label'),
       },
-    },
+    }),
     withStructuredErrors('dero_get_block_template', async ({ wallet_address, block, miner }) => {
       const params: Record<string, unknown> = { wallet_address }
       if (block !== undefined) params.block = block
@@ -500,9 +504,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   server.registerTool(
     'dero_docs_search',
-    {
-      description:
-        'Search bundled DERO documentation (derod/tela/hologram/deropay). Ships with npm package; optional DERO_DOCS_ROOT overrides for local dev.',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_docs_search,
       inputSchema: {
         query: z
           .string()
@@ -523,16 +526,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Max matches (default 8, max 25)'),
       },
-    },
+    }),
     withStructuredErrors('dero_docs_search', async ({ query, product, section, limit }) =>
       searchDeroDocs({ query, product, section, limit })),
   )
 
   server.registerTool(
     'dero_docs_get_page',
-    {
-      description:
-        'Get one docs page by slug (optionally scoped by product). Returns headings and normalized plain-text content.',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_docs_get_page,
       inputSchema: {
         slug: z
           .string()
@@ -544,16 +546,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Optional product scope to disambiguate duplicate slugs'),
       },
-    },
+    }),
     withStructuredErrors('dero_docs_get_page', async ({ slug, product }) =>
       getDeroDocPage({ slug, product })),
   )
 
   server.registerTool(
     'dero_docs_list',
-    {
-      description:
-        'List indexed docs pages across derod/tela/hologram/deropay with slugs and canonical URLs.',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_docs_list,
       inputSchema: {
         product: deroDocProductSchema
           .optional()
@@ -566,7 +567,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .optional()
           .describe('Max pages returned (default 120, max 500)'),
       },
-    },
+    }),
     withStructuredErrors('dero_docs_list', async ({ product, limit }) => {
       const docsIndex = await listDeroDocs(product)
       const capped = Math.max(1, Math.min(limit ?? 120, 500))

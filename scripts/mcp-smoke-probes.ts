@@ -4,6 +4,7 @@
  *
  * Verifies:
  * - tools/list count + name parity
+ * - every tool carries the read-only annotation block
  * - resources/list count + URI parity
  * - prompts/list count + name parity
  * - prompts/get returns usable messages
@@ -79,6 +80,39 @@ function assertSortedEqual(actual: string[], expected: readonly string[], label:
   }
 }
 
+type ToolWithAnnotations = {
+  name: string
+  annotations?: {
+    readOnlyHint?: boolean
+    destructiveHint?: boolean
+    idempotentHint?: boolean
+    openWorldHint?: boolean
+  }
+}
+
+/**
+ * Every tool in this server must carry the same read-only annotation block.
+ * This lets MCP hosts auto-approve safe calls and prevents future PRs from
+ * silently adding wallet/write tools without flipping the annotations.
+ */
+function assertReadOnlyAnnotations(tools: readonly ToolWithAnnotations[]) {
+  const offenders: string[] = []
+  for (const tool of tools) {
+    const a = tool.annotations
+    if (!a) {
+      offenders.push(`${tool.name}: missing annotations block`)
+      continue
+    }
+    if (a.readOnlyHint !== true) offenders.push(`${tool.name}: readOnlyHint !== true`)
+    if (a.destructiveHint !== false) offenders.push(`${tool.name}: destructiveHint !== false`)
+    if (a.idempotentHint !== false) offenders.push(`${tool.name}: idempotentHint !== false`)
+    if (a.openWorldHint !== false) offenders.push(`${tool.name}: openWorldHint !== false`)
+  }
+  if (offenders.length > 0) {
+    throw new Error(`annotations: ${offenders.length} tool(s) failed:\n  ${offenders.join('\n  ')}`)
+  }
+}
+
 function parseFirstTextJson(result: { content: Array<{ type: string; text?: string }> }): unknown {
   const textEntry = result.content.find((c) => c.type === 'text' && typeof c.text === 'string')
   if (!textEntry?.text) {
@@ -117,6 +151,9 @@ async function main() {
     const toolNames = tools.tools.map((t) => t.name)
     assertSortedEqual(toolNames, EXPECTED_TOOLS, 'tools/list')
     console.log(`OK  tools/list      ${toolNames.length} tools`)
+
+    assertReadOnlyAnnotations(tools.tools as ToolWithAnnotations[])
+    console.log(`OK  tools/list      annotations (read-only) on ${toolNames.length}/${toolNames.length}`)
 
     const resources = await client.listResources()
     const resourceUris = resources.resources.map((r) => r.uri)

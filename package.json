@@ -29,6 +29,7 @@
     "smoke:mcp": "npx tsx scripts/mcp-smoke-probes.ts",
     "smoke:docs": "npx tsx scripts/docs-smoke-probes.ts",
     "test:flows": "npx tsx scripts/flow-test.ts",
+    "check:mcp-descriptions": "npx tsx scripts/check-mcp-descriptions.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
