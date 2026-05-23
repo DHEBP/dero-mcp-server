@@ -1,14 +1,16 @@
 # DERO MCP Agent-Ready Evidence
 
-**Last updated:** 2026-05-20  
-**Repo:** `DHEBP/dero-mcp-server` (working tree)  
+**Last updated:** 2026-05-23
+**Repo:** `DHEBP/dero-mcp-server` (working tree)
 **Mode:** Local stdio MCP (read-only daemon access)
 
 ---
 
 ## One-line verdict
 
-DERO MCP is **agent-ready for local stdio usage**: surface contract is stable, diagnostics pass, flow tests pass, and CI now includes MCP smoke probes.
+DERO MCP is **agent-ready for local stdio usage with Phase A utility hardening shipped**: 20 tools carry read-only MCP annotations, descriptions follow the agent-instruction template under a CI guard, three primitives emit curated docs citations, and a separate CI guard validates every citation slug against the bundled docs index.
+
+For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improvements.md`](./agent-utility-improvements.md). For the read-only posture and gating conditions for moving the boundary see [`decision-boundary.md`](./decision-boundary.md). For the composite-tool design contract see [`composites.md`](./composites.md).
 
 ---
 
@@ -16,9 +18,11 @@ DERO MCP is **agent-ready for local stdio usage**: surface contract is stable, d
 
 | Primitive | Count | Notes |
 |---|---:|---|
-| Tools | 20 | Daemon reads + bundled docs (`dero_docs_*`, 145 pages) |
+| Tools | 20 | Daemon reads + bundled docs (`dero_docs_*`, 145 pages). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
 | Resources | 3 | Server info, safety boundary, example flows |
 | Prompts | 3 | Network health, SC inspection, tx tracing |
+| Curated docs citations | 6 | Across 3 primitives (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`). Validated against the bundled index in CI. |
+| Composite tools | 0 | Five designed in [`composites.md`](./composites.md); none implemented yet. |
 
 ---
 
@@ -30,12 +34,14 @@ DERO MCP is **agent-ready for local stdio usage**: surface contract is stable, d
 npm run smoke:mcp
 ```
 
-Result (latest run):
+Result (latest run, 2026-05-23):
 
 - `tools/list` parity: **20**
+- Read-only annotations on every tool: **20/20**
 - `resources/list` parity: **3**
 - `prompts/list` parity: **3**
 - `prompts/get` check: **pass**
+- `dero_get_info` `related_docs` citation: **2 citations present, both resolve**
 - Structured error probe (`_meta.error`): **pass**
 
 ### 2) Flow tests
@@ -78,34 +84,40 @@ Result (latest run):
 
 ## Security boundary (explicit)
 
-This MCP server remains **read-only** by design.
+This MCP server remains **read-only** by design. The full posture and the AND-conditions required to move the boundary (e.g. adding wallet tools) live in [`decision-boundary.md`](./decision-boundary.md).
 
-Excluded methods include:
+Excluded methods (v0.1.x):
 
 - Wallet mutation calls (e.g., `transfer`, `scinvoke`)
 - `DERO.SendRawTransaction`
 - `DERO.SubmitBlock`
 
-Write operations must remain outside this server unless an explicit wallet-write gate policy is introduced.
+Write operations must remain outside this server unless every gating condition in `decision-boundary.md` § "Moving the boundary" is met.
 
 ---
 
 ## CI gate
 
-Current CI runs:
+Current CI runs (in order):
 
 1. `npm run build`
-2. `npm run smoke:mcp`
-3. `npm run test:flows`
-4. `tsc --noEmit`
+2. `npm run check:mcp-descriptions` — enforces the four-section agent-instruction template on all 20 tool descriptions.
+3. `npm run check:citations` — validates every curated docs citation slug + title resolves against the bundled index.
+4. `npm run smoke:mcp` — includes annotation parity assertion and `related_docs` smoke check.
+5. `npm run smoke:docs`
+6. `npm run test:flows`
+7. `tsc --noEmit`
 
 ---
 
 ## Deferred items
 
-- Wallet-write support (intentionally deferred)
+- Wallet-write support (intentionally deferred — see [`decision-boundary.md`](./decision-boundary.md) § "Moving the boundary" for the gating conditions)
 - Streamable HTTP/SSE transport (not required for current stdio-first strategy)
 - Domain DNS discovery artifacts (`.well-known`, `_mcp`, `_agentroot`, `_llms`) until remote transport exists
+- Composite tools (5 designed in [`composites.md`](./composites.md); ship order: `diagnose_chain_health` → `explain_smart_contract` → `recommend_docs_path` → `estimate_deploy_cost` → `trace_transaction_with_context`, one self-contained commit to main each)
+- Runtime tool filtering via `DERO_MCP_ENABLED_TOOLS` env allowlist
+- Input ergonomics: camelCase aliases on the top-3 most-called tools
 
 ---
 
@@ -114,5 +126,5 @@ Current CI runs:
 Official MCP Registry listing is active for stdio package distribution:
 
 - `io.github.DHEBP/dero-mcp-server`
-- Version: `0.1.1`
+- Version: `0.1.2` (working tree includes Phase A utility hardening; the next published release will bump accordingly)
 - Status: `active`
