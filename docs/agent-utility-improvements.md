@@ -13,7 +13,7 @@
 
 ---
 
-## 1. Current state snapshot (v0.1.2)
+## 1. Starting-point snapshot (legacy v0.1.2 — superseded by v0.2.0)
 
 | Dimension | Status |
 |-----------|--------|

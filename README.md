@@ -6,7 +6,7 @@
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.1.2` · **Transport:** `stdio` (npm package)
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.2.0` · **Transport:** `stdio` (npm package)
 
 ---
 

@@ -143,5 +143,5 @@ Current CI runs (in order):
 Official MCP Registry listing is active for stdio package distribution:
 
 - `io.github.DHEBP/dero-mcp-server`
-- Version: `0.1.2` (working tree includes Phase A utility hardening; the next published release will bump accordingly)
+- Version: `0.2.0` (Phases A + B + C composites + D ergonomics polish all shipped; this is the bump from the legacy 0.1.2 primitives-only surface)
 - Status: `active`
