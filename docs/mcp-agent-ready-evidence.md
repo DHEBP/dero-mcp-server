@@ -18,11 +18,11 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 
 | Primitive | Count | Notes |
 |---|---:|---|
-| Tools | 24 | 20 daemon-read + bundled-docs primitives plus 4 composites (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
+| Tools | 25 | 20 daemon-read + bundled-docs primitives plus **all 5 composites** (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`, `trace_transaction_with_context`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
 | Resources | 3 | Server info, safety boundary, example flows |
 | Prompts | 3 | Network health, SC inspection, tx tracing |
-| Curated docs citations | 14 | Across 6 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`, `explain_smart_contract`, `estimate_deploy_cost`). Validated against the bundled index in CI. `recommend_docs_path` emits dynamic citations from its top search hits (no static curation needed). |
-| Composite tools | 4 of 5 | `diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, and `estimate_deploy_cost` shipped 2026-05-23 (all flow tests green, including failure-mode coverage for `NO_DOCS_MATCH` and `INVALID_INPUT`). Only `trace_transaction_with_context` remains, designed in [`composites.md`](./composites.md) and pending ship order. |
+| Curated docs citations | 16 | Across 7 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`, `explain_smart_contract`, `estimate_deploy_cost`, `trace_transaction_with_context`). Validated against the bundled index in CI. `recommend_docs_path` emits dynamic citations from its top search hits (no static curation needed). |
+| Composite tools | 5 of 5 ✅ | All Phase C composites shipped 2026-05-23 with green flow tests including failure-mode coverage for `NO_DOCS_MATCH`, `INVALID_INPUT`, and `TX_NOT_FOUND`. Phase C is complete. |
 
 ---
 
@@ -34,10 +34,10 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 npm run smoke:mcp
 ```
 
-Result (latest run, 2026-05-23 after composite #4):
+Result (latest run, 2026-05-23 after composite #5 — Phase C complete):
 
-- `tools/list` parity: **24**
-- Read-only annotations on every tool: **24/24**
+- `tools/list` parity: **25**
+- Read-only annotations on every tool: **25/25**
 - `resources/list` parity: **3**
 - `prompts/list` parity: **3**
 - `prompts/get` check: **pass**
@@ -55,6 +55,22 @@ Result (latest run):
 - **10 passed**
 - **0 failed**
 - **0 skipped**
+
+### 2a) Composite flow tests
+
+```bash
+npm run test:composites
+```
+
+Result (latest run, 2026-05-23 after composite #5):
+
+- `flow-diagnose-chain-health` (full + `include_tx_pool=false` variant): **pass**
+- `flow-explain-name-registry` (kind=registry, 6 functions, 22618 stringkeys): **pass**
+- `flow-recommend-docs-deploy-tela` + `flow-recommend-docs-no-match` (NO_DOCS_MATCH classifier branch): **pass**
+- `flow-estimate-deploy-minimal` (full + `include_breakdown=false` variant) + `flow-estimate-deploy-invalid` (INVALID_INPUT for DVM compile error -32098): **pass**
+- `flow-trace-known-transfer` (historical tx `22c3813c…b9e8625` at height 3,112,760 — confirmed, ring_groups=1, hex_len=6444): **pass**
+- `flow-trace-tx-not-found` (deterministic `deadbeef…deadbeef` → structured `TX_NOT_FOUND`, retryable=true): **pass**
+- `flow-trace-sc-install` (env-gated on `DERO_TRACE_SC_TX_HASH`): **skipped** (documented; set the env var to exercise the sc_install branch)
 
 ### 3) Daemon connectivity doctor
 
@@ -116,7 +132,7 @@ Current CI runs (in order):
 - Wallet-write support (intentionally deferred — see [`decision-boundary.md`](./decision-boundary.md) § "Moving the boundary" for the gating conditions)
 - Streamable HTTP/SSE transport (not required for current stdio-first strategy)
 - Domain DNS discovery artifacts (`.well-known`, `_mcp`, `_agentroot`, `_llms`) until remote transport exists
-- Composite tools — 4 of 5 shipped. Only `trace_transaction_with_context` remains, designed in [`composites.md`](./composites.md) and pending a self-contained commit to main.
+- Composite tools — **5 of 5 shipped**. Phase C is complete. Future composite additions must go through the design contract in [`composites.md`](./composites.md) and ship as a self-contained commit to main with description + citation + smoke + flow + CI guards green.
 - Runtime tool filtering via `DERO_MCP_ENABLED_TOOLS` env allowlist
 - Input ergonomics: camelCase aliases on the top-3 most-called tools
 

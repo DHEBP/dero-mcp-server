@@ -246,51 +246,78 @@ z.object({
 
 ---
 
-### 5. `trace_transaction_with_context` — biggest composite, ship last
+### 5. `trace_transaction_with_context` — shipped 2026-05-23
 
-**Wedge:** `dero_get_transaction` returns confirmation + ring + (optional) decoded payload. If the tx invokes an SC, the agent then has to call `dero_get_sc` and figure out which function was called. This composite does both, plus stitches docs context.
+**Wedge:** `dero_get_transaction` returns the raw tx record (block, ring, signer, code, balances) but leaves the agent to classify confirmation, figure out the tx kind, and separately fetch SC context. This composite folds all of that into one call and stitches the right docs page as a citation.
 
-**Sequencing rule:** SHIP LAST. Combines `trace` + `explain_smart_contract` patterns. Higher failure-mode count than any other composite — multiple primitives can fail independently.
+**Sequencing rule:** SHIPPED LAST. Combines `trace` + `explain_smart_contract` patterns. Higher failure-mode count than any other composite — multiple primitives can fail independently.
+
+**Implementation notes (recorded to keep design and shipped surface in sync):**
+
+The original spec assumed `DERO.GetTransaction` would surface decoded SC invocation args. After probing the public daemon directly (`82.65.143.182:10102`) we confirmed that decoded JSON args are NOT returned in any field — they live inside the binary `txs_as_hex` blob and would require walking the DERO tx codec, which is not bundled in this MCP. The shipped composite handles this honestly:
+
+- **SC INSTALL detection** works directly off the tx record: when `tx.code` is non-empty the tx_hash itself IS the resulting SCID and the embedded source is the deployed code. We run `extractScSurface` on `tx.code` directly — **no second `DERO.GetSC` call is needed for installs**, which simplifies the chain and reduces failure modes vs. the original spec.
+- **SC INVOCATION arg decoding is NOT performed.** The composite surfaces `raw_tx_hex_length` so the agent knows the binary is available via `dero_get_transaction` if a wallet-side decoder is needed downstream. This is documented in the tool description and the module header.
+- **TX_NOT_FOUND** is signalled by the daemon as an EMPTY record (`block_height: 0, in_pool: false, code: '', ring: []`), NOT as an error. The composite detects this and throws a classifier-friendly message; the new `TX_NOT_FOUND` branch in `classifyToolError` produces `_meta.error.code = 'TX_NOT_FOUND'` with `retryable: true` (freshly broadcast txs may not have propagated yet) and a 253-char actionable hint.
 
 **Input schema (Zod):**
 ```ts
-z.object({
-  tx_hash: hex64Schema.describe('64-char hex transaction hash'),
-  decode: z.boolean().optional().describe('Pass decode_as_json=1 to the daemon. Default true.'),
-  include_sc_context: z.boolean().optional().describe('Fetch SC surface when tx invokes a contract. Default true.'),
-})
-```
-
-**Internal chain:**
-1. `DERO.GetTransaction` with `txs_hashes=[tx_hash], decode_as_json=decode?1:0`.
-2. Extract: confirmation status, block hash, transfers, SC invocations.
-3. If `include_sc_context !== false` AND tx contains SC invocations:
-   - For each unique SCID, call `DERO.GetSC` with `code=true, variables=false`.
-   - Run `extractScSurface` on each.
-4. Pull `derod` / `rpc-api/daemon-rpc-api` (tx structure) for citation; if SC context fetched, also add the DVM page.
-
-**Response shape:**
-```ts
 {
-  tx_hash: string,
-  confirmation: { status: 'confirmed' | 'mempool' | 'unknown', block_hash: string | null, height: number | null },
-  transfers: Array<{ scid: string, amount: number | string, destination?: string }>,
-  sc_invocations: Array<{
-    scid: string,
-    entrypoint: string | null,
-    args: unknown[] | null,
-    contract_surface: { functions: Array<{ name: string }>, stringkeys: string[] } | null,
-  }>,
-  narrative: string,  // 2–5 sentences
-  related_docs: DeroCitation[],
+  tx_hash: z.string().regex(/^[0-9a-fA-F]{64}$/),
+  decode: z.boolean().optional(),            // default true
+  include_sc_context: z.boolean().optional() // default true
 }
 ```
 
-**Failure modes:**
-- `DERO.GetTransaction` returns empty (tx unknown) → `_meta.error` `TX_NOT_FOUND` with hint to recheck the hash or wait for confirmation.
-- Tx found but `DERO.GetSC` fails for one SCID → keep that invocation's `contract_surface: null`, surface a `signals: ['partial']` flag; do NOT abort.
+**Internal chain (actual, shipped):**
+1. `DERO.GetTransaction` with `txs_hashes=[tx_hash], decode_as_json=decode?1:0`.
+2. Detect empty record → throw `'DERO transaction not found: ...'` → classifier emits `TX_NOT_FOUND`.
+3. Classify `confirmation.status` from `in_pool` + `block_height`.
+4. Classify `kind` from `tx.code` (sc_install) / `tx.reward` + no ring (coinbase) / ring present (transfer_or_invocation) / else unknown.
+5. If `include_sc_context !== false` AND `kind === 'sc_install'`: run `extractScSurface(tx.code)` inline. Failures are isolated (`sc_install` becomes null + diagnostic flag); never abort the whole composite.
+6. Citation: always `derod / rpc-api/daemon-rpc-api`; also `derod / dvm/smart-contract-fundamentals` to cover the SC-install path.
 
-**Flow test ID:** `flow-trace-known-name-registry-call`. Requires a known tx hash; if no fixture available, skip with documented reason. Asserts narrative length ≥ 80, `related_docs.length ≥ 1`.
+**Response shape (actual, shipped):**
+```ts
+{
+  tx_hash: string,
+  confirmation: {
+    status: 'confirmed' | 'mempool' | 'unknown',
+    block_height: number | null,
+    valid_block: string | null,
+    invalid_blocks: string[],
+    in_pool: boolean,
+  },
+  kind: 'sc_install' | 'transfer_or_invocation' | 'coinbase' | 'unknown',
+  ring: { groups: number | null, first_group_size: number | null },
+  reward: number | null,
+  signer_visible: boolean,
+  native_balance: { scid: '0000…0000', at_tx: number | null, current: number | null },
+  sc_install: {  // non-null ONLY when kind === 'sc_install' AND surface extracted
+    scid: string,
+    surface: { functions, stringkeys, uint64keys, balances },
+    raw_code_length: number,
+    has_code: boolean,
+  } | null,
+  raw_tx_hex_length: number,
+  narrative: string,           // 2–5 sentences, kind-aware
+  related_docs: DeroCitation[],
+  _diagnostics: {
+    step_latency_ms, total_ms, halted_at, decode_as_json,
+    include_sc_context, sc_install_surface_attempted, sc_install_surface_failed,
+  },
+}
+```
+
+**Failure modes (shipped):**
+- Daemon returns empty record (unknown hash) → `_meta.error.code = 'TX_NOT_FOUND'`, `retryable: true`. Verified by `flow-trace-tx-not-found`.
+- `DERO.GetTransaction` throws (network / invalid params) → propagates via existing `RPC_UNREACHABLE` / `RPC_INVALID_PARAMS` classifier branches.
+- Tx found, `kind === 'sc_install'`, but `extractScSurface` parsing degraded → `sc_install` becomes null and `_diagnostics.sc_install_surface_failed = true`. Composite still returns a useful narrative + confirmation + ring info. Never aborts.
+
+**Flow test IDs (shipped, all in `scripts/flow-composites.ts`):**
+- `flow-trace-known-transfer` — uses confirmed historical tx `22c3813c…b9e8625` (height 3,112,760, sourced from the Release-142 inflation-bug investigation archive). Asserts `confirmation.status === 'confirmed'`, `block_height > 0`, `kind !== 'sc_install'`, `sc_install === null`, `ring.groups >= 1`, `raw_tx_hex_length > 0`, narrative length ≥ 80, citations well-formed, `_diagnostics.sc_install_surface_attempted === false`.
+- `flow-trace-tx-not-found` — uses deterministic nonexistent hash `deadbeef…deadbeef`. Asserts `_meta.error.code === 'TX_NOT_FOUND'`, `retryable === true`, hint length ≥ 40.
+- `flow-trace-sc-install` — optional, env-gated on `DERO_TRACE_SC_TX_HASH`. Skipped by default with documented reason. When set, asserts `kind === 'sc_install'`, `sc_install.scid === tx_hash`, `has_code === true`, and `surface.functions` populated. Lets future operators add a known SC-install fixture without committing one now.
 
 ---
 
@@ -302,7 +329,7 @@ z.object({
 | 2 | `explain_smart_contract` | ✅ shipped 2026-05-23 | Established `extractScSurface` (now in `_shared.ts`) for reuse by composites 4 & 5. |
 | 3 | `recommend_docs_path` | ✅ shipped 2026-05-23 | Docs-only composite — independent of chain semantics. Added `NO_DOCS_MATCH` classifier branch. |
 | 4 | `estimate_deploy_cost` | ✅ shipped 2026-05-23 | Reused `extractScSurface` for SC enrichment; added `RPC error -32098` → `INVALID_INPUT` classifier branch for DVM compile failures. |
-| 5 | `trace_transaction_with_context` | ⬜ pending | Highest fan-out + failure-mode count; ship last. |
+| 5 | `trace_transaction_with_context` | ✅ shipped 2026-05-23 | Added `TX_NOT_FOUND` classifier branch; SC-install surface extraction inline (no second `GetSC` needed); SC invocation arg decoding documented as deferred (requires binary tx codec, not bundled). |
 
 One composite per commit. Each commit adds: the section already in this doc (or a small refinement of it) + the implementation + the flow test + the smoke probe entry + the citation map entry. Keep commits small and self-contained so a `git revert` cleanly removes one composite without disturbing the others.
 

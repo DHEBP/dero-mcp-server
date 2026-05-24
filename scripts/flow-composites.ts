@@ -24,6 +24,17 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
 const MIN_NARRATIVE_LENGTH = 80
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
+// Confirmed historical transfer on the public daemon (height ~3,112,760).
+// Sourced from the Release-142 inflation-bug investigation archive — the
+// hash is one of the exploited / verified-existing txs in
+// DERO_Inflation_Exploit_Technical_Report.md and is stable forever.
+const KNOWN_TRANSFER_TX_HASH =
+  '22c3813c931596d537027095d4d9d4e379a340715c7984b265aaf85f6b9e8625'
+// Deterministic nonexistent tx hash. The daemon returns an empty record
+// rather than an error for unknown hashes; the composite detects this and
+// throws TX_NOT_FOUND.
+const NONEXISTENT_TX_HASH =
+  'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
 function parseArgs(argv: string[]): string {
   let daemonUrl = process.env.DERO_DAEMON_URL ?? DEFAULT_DAEMON_URL
@@ -59,6 +70,44 @@ type Citation = {
   title?: string
   canonical_url?: string
   page_id?: string
+}
+
+type TraceTxPayload = {
+  tx_hash?: string
+  confirmation?: {
+    status?: 'confirmed' | 'mempool' | 'unknown'
+    block_height?: number | null
+    valid_block?: string | null
+    invalid_blocks?: string[]
+    in_pool?: boolean
+  }
+  kind?: 'sc_install' | 'transfer_or_invocation' | 'coinbase' | 'unknown'
+  ring?: { groups: number | null; first_group_size: number | null }
+  reward?: number | null
+  signer_visible?: boolean
+  native_balance?: { scid?: string; at_tx?: number | null; current?: number | null }
+  sc_install?: {
+    scid?: string
+    surface?: {
+      functions?: Array<{ name: string; args?: string[]; returns?: string }>
+      stringkeys?: string[]
+      uint64keys?: string[]
+    }
+    raw_code_length?: number
+    has_code?: boolean
+  } | null
+  raw_tx_hex_length?: number
+  narrative?: string
+  related_docs?: Citation[]
+  _diagnostics?: {
+    step_latency_ms?: Record<string, number>
+    total_ms?: number
+    halted_at?: string | null
+    decode_as_json?: boolean
+    include_sc_context?: boolean
+    sc_install_surface_attempted?: boolean
+    sc_install_surface_failed?: boolean
+  }
 }
 
 type EstimateDeployCostPayload = {
@@ -514,6 +563,168 @@ async function flowEstimateDeployInvalid(client: Client): Promise<void> {
   )
 }
 
+/**
+ * flow-trace-known-transfer — `docs/composites.md` § 5.
+ *
+ * Asserts the standard "regular transfer" path of the trace composite
+ * against a stable historical tx hash (sourced from the Release-142
+ * inflation-bug investigation archive — `KNOWN_TRANSFER_TX_HASH` is
+ * confirmed-existing on the public chain and immutable).
+ *
+ * Coverage:
+ *  - `confirmation.status === 'confirmed'` and `block_height > 0`.
+ *  - `kind` is one of the documented enum values and is NOT
+ *    `sc_install` for a regular transfer.
+ *  - `ring.groups ≥ 1` and `ring.first_group_size ≥ 1` (privacy txs
+ *    always carry ring members).
+ *  - `sc_install === null` for a non-install tx.
+ *  - `raw_tx_hex_length > 0` so the agent knows the binary is
+ *    available for downstream wallet-side decoding.
+ *  - `narrative` length ≥ 80, citations are well-formed.
+ *  - `_diagnostics.sc_install_surface_attempted === false` for a
+ *    non-install tx (proves the composite skipped the optional path).
+ */
+async function flowTraceKnownTransfer(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'trace_transaction_with_context',
+    arguments: { tx_hash: KNOWN_TRANSFER_TX_HASH },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as TraceTxPayload
+
+  if (payload.tx_hash !== KNOWN_TRANSFER_TX_HASH) {
+    throw new Error(
+      `trace_transaction_with_context: tx_hash round-trip failed (got ${payload.tx_hash ?? '<missing>'})`,
+    )
+  }
+  if (payload.confirmation?.status !== 'confirmed') {
+    throw new Error(
+      `trace_transaction_with_context: expected confirmation.status="confirmed", got "${payload.confirmation?.status}"`,
+    )
+  }
+  if (typeof payload.confirmation.block_height !== 'number' || payload.confirmation.block_height <= 0) {
+    throw new Error('trace_transaction_with_context: expected block_height > 0 for confirmed tx')
+  }
+  const validKinds = ['sc_install', 'transfer_or_invocation', 'coinbase', 'unknown'] as const
+  if (!validKinds.includes(payload.kind as (typeof validKinds)[number])) {
+    throw new Error(`trace_transaction_with_context: unexpected kind "${payload.kind}"`)
+  }
+  if (payload.kind === 'sc_install') {
+    throw new Error(
+      'trace_transaction_with_context: known-transfer fixture should NOT classify as sc_install',
+    )
+  }
+  if (payload.sc_install !== null) {
+    throw new Error(
+      'trace_transaction_with_context: sc_install should be null for a non-install tx',
+    )
+  }
+  if (!payload.ring || (payload.ring.groups ?? 0) < 1) {
+    throw new Error('trace_transaction_with_context: expected ≥ 1 ring group for a transfer tx')
+  }
+  if (typeof payload.raw_tx_hex_length !== 'number' || payload.raw_tx_hex_length <= 0) {
+    throw new Error('trace_transaction_with_context: expected raw_tx_hex_length > 0')
+  }
+  if (typeof payload.narrative !== 'string' || payload.narrative.length < MIN_NARRATIVE_LENGTH) {
+    throw new Error(
+      `trace_transaction_with_context: narrative too short (${payload.narrative?.length ?? 0} < ${MIN_NARRATIVE_LENGTH})`,
+    )
+  }
+  if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
+    throw new Error('trace_transaction_with_context: related_docs missing or empty')
+  }
+  for (const cite of payload.related_docs) {
+    assertCitation(cite, 'trace_transaction_with_context.related_docs')
+  }
+  if (payload._diagnostics?.sc_install_surface_attempted !== false) {
+    throw new Error(
+      'trace_transaction_with_context: sc_install_surface_attempted should be false for non-install tx',
+    )
+  }
+
+  console.log(
+    `OK  flow-trace-known-transfer (status=${payload.confirmation.status}, height=${payload.confirmation.block_height}, kind=${payload.kind}, ring_groups=${payload.ring.groups}, hex_len=${payload.raw_tx_hex_length}, narrative=${payload.narrative.length}ch, citations=${payload.related_docs.length})`,
+  )
+}
+
+/**
+ * Covers the TX_NOT_FOUND failure mode. Uses a deterministic
+ * nonexistent hash; the daemon returns an empty record (not an
+ * error), the composite detects this and throws, the classifier
+ * branch in src/server.ts converts to a structured `_meta.error`
+ * with code TX_NOT_FOUND.
+ */
+async function flowTraceTxNotFound(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'trace_transaction_with_context',
+    arguments: { tx_hash: NONEXISTENT_TX_HASH },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as StructuredErrorPayload
+  if (payload?.ok !== false || payload?._meta?.error?.code !== 'TX_NOT_FOUND') {
+    throw new Error(
+      `trace_transaction_with_context: expected _meta.error.code=TX_NOT_FOUND for nonexistent hash, got ${JSON.stringify(payload).slice(0, 200)}`,
+    )
+  }
+  if (typeof payload._meta.error.hint !== 'string' || payload._meta.error.hint.length < 40) {
+    throw new Error('trace_transaction_with_context: TX_NOT_FOUND hint missing or too short')
+  }
+  if (payload._meta.error.retryable !== true) {
+    throw new Error(
+      'trace_transaction_with_context: TX_NOT_FOUND should be retryable=true (freshly broadcast txs may not have propagated yet)',
+    )
+  }
+  console.log(
+    `OK  flow-trace-tx-not-found (code=${payload._meta.error.code}, retryable=${payload._meta.error.retryable}, hint_len=${payload._meta.error.hint.length})`,
+  )
+}
+
+/**
+ * Optional SC-install branch coverage. Activated only when
+ * DERO_TRACE_SC_TX_HASH is set in the environment; otherwise prints
+ * a skip notice and returns. Lets future operators add a known
+ * stable SC-install fixture without having to commit one now.
+ *
+ * When the env var is set, asserts the composite extracts the SC
+ * install surface inline (no second dero_get_sc call) and exposes
+ * the function list + raw_code_length on the response.
+ */
+async function flowTraceScInstallOptional(client: Client): Promise<void> {
+  const scInstallHash = process.env.DERO_TRACE_SC_TX_HASH
+  if (!scInstallHash) {
+    console.log(
+      'SKIP flow-trace-sc-install (set DERO_TRACE_SC_TX_HASH=<64hex of a known SC install tx> to exercise the sc_install branch)',
+    )
+    return
+  }
+  const result = await client.callTool({
+    name: 'trace_transaction_with_context',
+    arguments: { tx_hash: scInstallHash },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as TraceTxPayload
+  if (payload.kind !== 'sc_install') {
+    throw new Error(
+      `trace_transaction_with_context: DERO_TRACE_SC_TX_HASH ${scInstallHash} should classify as sc_install, got "${payload.kind}"`,
+    )
+  }
+  if (!payload.sc_install || payload.sc_install.scid !== scInstallHash) {
+    throw new Error('trace_transaction_with_context: sc_install.scid should equal tx_hash for installs')
+  }
+  if (!payload.sc_install.has_code) {
+    throw new Error('trace_transaction_with_context: sc_install.has_code should be true on a real install tx')
+  }
+  if (!payload.sc_install.surface || !Array.isArray(payload.sc_install.surface.functions)) {
+    throw new Error('trace_transaction_with_context: sc_install.surface.functions missing')
+  }
+  console.log(
+    `OK  flow-trace-sc-install (scid=${scInstallHash.slice(0, 12)}..., functions=${payload.sc_install.surface.functions.length}, code_len=${payload.sc_install.raw_code_length})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -542,6 +753,9 @@ async function main(): Promise<void> {
     await flowRecommendDocsNoMatch(client)
     await flowEstimateDeployMinimal(client)
     await flowEstimateDeployInvalid(client)
+    await flowTraceKnownTransfer(client)
+    await flowTraceTxNotFound(client)
+    await flowTraceScInstallOptional(client)
 
     console.log('')
     console.log('All composite flow tests passed.')

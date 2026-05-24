@@ -25,6 +25,10 @@ import {
   estimateDeployCost,
   estimateDeployCostInputSchema,
 } from './composites/estimate-deploy-cost.js'
+import {
+  traceTransactionWithContext,
+  traceTransactionWithContextInputSchema,
+} from './composites/trace-transaction-with-context.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -124,6 +128,14 @@ function classifyToolError(error: unknown): StructuredToolError {
       code: 'NO_DOCS_MATCH',
       hint: 'Rephrase the intent (drop verbs, use product nouns like "TELA app" or "DVM contract"), then retry. You can also pass product_hint to bias the search.',
       retryable: false,
+    }
+  }
+
+  if (message.includes('DERO transaction not found')) {
+    return {
+      code: 'TX_NOT_FOUND',
+      hint: 'The daemon has no record of that tx hash on this chain. Verify the hash is correct (64 hex chars), check whether you queried the right network (mainnet vs testnet), and if the tx is freshly broadcast wait a few seconds for mempool propagation and retry.',
+      retryable: true,
     }
   }
 
@@ -664,6 +676,17 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       inputSchema: estimateDeployCostInputSchema,
     }),
     withStructuredErrors('estimate_deploy_cost', async (args) => estimateDeployCost(rpc, args)),
+  )
+
+  server.registerTool(
+    'trace_transaction_with_context',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.trace_transaction_with_context,
+      inputSchema: traceTransactionWithContextInputSchema,
+    }),
+    withStructuredErrors('trace_transaction_with_context', async (args) =>
+      traceTransactionWithContext(rpc, args),
+    ),
   )
 
   server.registerResource(

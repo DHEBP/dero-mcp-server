@@ -215,6 +215,17 @@ Input Requirements:
 
 Output: \`{ docs_source, total, products, pages: [{ product, slug, title, canonical_url, last_updated }] }\`.`,
 
+  trace_transaction_with_context: `Composite: look up a DERO transaction by hash, classify its confirmation status (confirmed | mempool | unknown) and kind (sc_install | transfer_or_invocation | coinbase | unknown), extract the SC surface inline when the tx is a contract install, and stitch the right DERO tx + DVM docs pages as citations.
+
+When to call: as the FIRST step when investigating any tx by hash — the user asks "what is this tx", "is this confirmed", "what contract did this deploy", or "what does this tx do". PREFER this over chaining dero_get_transaction with dero_get_sc yourself: for SC INSTALL txs the composite already extracts the deployed function surface inline (no second RPC needed because the source is embedded in the tx record), classifies the kind so the agent does not have to inspect the raw shape, and protects against the "empty record" failure mode by surfacing structured TX_NOT_FOUND when the daemon does not know the hash.
+
+Input Requirements:
+- \`tx_hash\` is REQUIRED. Must be 64 hex chars.
+- \`decode\` is OPTIONAL (default true). Pass false to ask the daemon to skip the JSON-decoded view (raw hex still comes back; the field hint that the binary is available).
+- \`include_sc_context\` is OPTIONAL (default true). Set false to skip the inline extractScSurface call for SC install txs (useful when you only need confirmation / ring info).
+
+Output: \`{ tx_hash, confirmation: { status, block_height, valid_block, invalid_blocks, in_pool }, kind, ring: { groups, first_group_size }, reward, signer_visible, native_balance, sc_install: { scid, surface, raw_code_length, has_code } | null, raw_tx_hex_length, narrative, related_docs, _diagnostics }\`. \`sc_install\` is non-null ONLY when the tx is a contract install AND the surface extractor produced something (tx_hash IS the resulting SCID in that case). SC invocation arg decoding is NOT performed — that requires walking the binary tx blob with the DERO tx codec, which is not bundled in this MCP. The composite surfaces \`raw_tx_hex_length\` so the agent knows the binary is available via dero_get_transaction. On unknown hash the daemon returns an empty record and the composite returns a structured \`_meta.error\` with code \`TX_NOT_FOUND\`.`,
+
   estimate_deploy_cost: `Composite: send a DVM-BASIC contract source to the daemon's gas estimator, then return the raw estimate alongside a plain-text breakdown (what each gas number means), the parsed contract surface, and curated DVM deploy docs as citations.
 
 When to call: BEFORE asking a wallet to broadcast a deploy transaction, OR when explaining the cost of a contract to a user. PREFER this over chaining dero_get_gas_estimate yourself: this composite already explains gascompute vs gasstorage in plain language, parses the SC source to show what functions the user is about to deploy (reusing extractScSurface from explain_smart_contract), and protects against fabricating a breakdown when the daemon reports 0/0 with a non-OK status.

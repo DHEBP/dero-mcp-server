@@ -124,6 +124,18 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'DERO Daemon RPC API: Complete Reference Guide | DERO Blockchain',
     },
   ],
+  trace_transaction_with_context: [
+    {
+      product: 'derod',
+      slug: 'rpc-api/daemon-rpc-api',
+      title: 'DERO Daemon RPC API: Complete Reference Guide | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'dvm/smart-contract-fundamentals',
+      title: 'Smart Contract Fundamentals: Understanding DERO Contracts | DERO Blockchain',
+    },
+  ],
   estimate_deploy_cost: [
     {
       product: 'derod',

@@ -44,6 +44,7 @@ const EXPECTED_TOOLS = [
   'explain_smart_contract',
   'recommend_docs_path',
   'estimate_deploy_cost',
+  'trace_transaction_with_context',
 ] as const
 
 const EXPECTED_RESOURCES = [
