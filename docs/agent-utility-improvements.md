@@ -205,13 +205,85 @@ Phased so each level lands a measurable utility win without rewriting the surfac
 | ✅ shipped 2026-05-23 | Ship `estimate_deploy_cost` — numeric pre-flight; reuses `extractScSurface` to enrich the response with the parsed function surface, returns null breakdown when daemon reports 0/0 with non-OK status (never fabricated), surfaces DVM compile failures as structured `INVALID_INPUT` via a new `RPC error -32098` classifier branch. |
 | ✅ shipped 2026-05-23 | Ship `trace_transaction_with_context` — final composite. Inline `extractScSurface` on `tx.code` for SC installs (no second `GetSC` call needed because the source is embedded). SC invocation arg decoding documented as deferred (requires binary tx codec, not bundled). Added `TX_NOT_FOUND` classifier branch — the daemon returns an empty record on unknown hashes rather than an error, so the composite detects that and throws a classifier-friendly message. Three flow tests shipped: `flow-trace-known-transfer` (against historical tx `22c3813c…b9e8625` at height 3,112,760), `flow-trace-tx-not-found` (deterministic nonexistent hash → structured `TX_NOT_FOUND` with `retryable: true`), and `flow-trace-sc-install` (env-gated on `DERO_TRACE_SC_TX_HASH`, skipped by default). |
 
-### P3 — Ergonomics + reach
+### P3 — Original "ergonomics + reach" backlog (legacy labels — superseded by Phase D + E below)
 
 | Status | Item |
 |--------|------|
 | ⬜ pending | Add `DERO_MCP_ENABLED_TOOLS` runtime filter (§3.6). |
 | ⬜ pending | Add input aliases for the top 3 most-called tools (§3.9). |
 | ⬜ pending | Add `skills/dero-mcp-server/SKILL.md` (§3.10). |
+
+### Phase D — Composite-first agent surface (shipped 2026-05-23)
+
+What got shipped as "Phase D ergonomics" diverged from the original P3 list — the urgent thing was making the new composites discoverable to agents, not the original runtime filter / aliases / skill items. Those remain in P3 above.
+
+| Status | Item |
+|--------|------|
+| ✅ shipped 2026-05-23 | Refresh the 3 original prompts (`network_health_check`, `inspect_smart_contract`, `trace_transaction`) to PREFER composites — primitive chains documented as fallback only. |
+| ✅ shipped 2026-05-23 | Add 2 new prompts that drive the composites that had no prompt: `find_dero_docs_for_intent` → `recommend_docs_path`, `estimate_deploy_for_contract` → `estimate_deploy_cost`. |
+| ✅ shipped 2026-05-23 | Rewrite `dero://mcp/example-flows` resource composite-first with a structured `_meta.error` code reference. |
+| ✅ shipped 2026-05-23 | Add new `dero://mcp/composites` resource — JSON catalog with `replaces`, `when_to_call`, `inputs`, `output_highlights`, `error_codes` for connect-time agent orientation. |
+| ✅ shipped 2026-05-24 | Bump version 0.1.2 → 0.2.0 → 0.2.1 (with bundle refresh in between via the auto-PR from `Sync MCP docs bundle`). |
+| ✅ shipped 2026-05-24 | Trim `server.json` description to ≤ 100 chars (registry validator limit caught at `mcp-publisher validate`). |
+| ✅ shipped 2026-05-24 | Refresh `derod.org/tools/mcp-server` page for the 0.2.1 surface (with proper Nextra front matter, missing in the prior revision). |
+| ✅ shipped 2026-05-24 | Release: `npm publish dero-mcp-server@0.2.1`, `mcp-publisher publish` (registry `isLatest: true`), git tag `v0.2.1`, GitHub Release `v0.2.1 — Composites release`. |
+
+### Phase E — Future backlog (do NOT start without trigger)
+
+**Sequencing rule:** Phase E is gated on *observed agent usage*, not theoretical wishlist. Do not begin a Phase E item until at least one of the trigger conditions is met. Avoids over-building — every new tool is a permanent compatibility commitment.
+
+#### Phase E.1 — Polish backlog (small, do-anytime)
+
+These are safe to do whenever. None gate the release.
+
+| Item | Why | Trigger |
+|------|-----|---------|
+| Run `npm pkg fix` in `dero-mcp-server` and commit | Silences the `bin[dero-mcp-server]` whitespace warning emitted by `npm publish`. Cosmetic, but easy to fix. | Anytime before next `npm publish`. |
+| Add a stable `DERO_TRACE_SC_TX_HASH` fixture | The env-gated `flow-trace-sc-install` test is currently SKIPPED by default. Wiring in a known historical SC-install tx hash would exercise the third branch of `trace_transaction_with_context` on every CI run. | When a stable, immutable on-chain SC install tx hash is identified (e.g. from the TELA contracts catalog). |
+| Submit to third-party MCP registries (Smithery, Glama, etc.) per `/Users/home/projects/docs/AI Agent Ready/deploy-and-registry-runbook.md` § "Third-party listings" | Expands reach beyond `registry.modelcontextprotocol.io`. Each registry has its own listing process. | Anytime; bounded by how much manual form-filling is acceptable. |
+| Pin a `docs_index_version` field in the bundled `data/docs-index.json` | Lets composite tests assert against a specific bundle snapshot, catching silent drift when `dero-docs` adds/removes pages. Currently composites just trust the bundle. | After the first time a `dero-docs` change accidentally breaks an `explain_smart_contract` or `recommend_docs_path` test. |
+| Address the open questions in § 7 (composite namespace, citation URL format, etc.) | Some were unresolved when Phase C shipped; the shipped behavior settled them de facto. Either retroactively document the decisions or formally re-open them. | Anytime; useful for the next person picking up this repo. |
+
+#### Phase E.2 — Tool runtime filtering + aliasing (carry-over from P3)
+
+Still genuinely useful, just not the first thing agents need post-0.2.1.
+
+| Item | Why | Trigger |
+|------|-----|---------|
+| `DERO_MCP_ENABLED_TOOLS` env var to filter `tools/list` | Lets a host config disable specific tools (e.g. only expose composites; only expose primitives; disable mempool-heavy ones). | A user explicitly asks for it, or a host integrator hits a wall trying to slim the catalog. |
+| Input aliases on the top 3 most-called tools | Reduces friction when agents misremember (`tx_id` for `tx_hash`, `address` for `scid`, etc.). | After we have telemetry or anecdotal evidence on which mistakes agents actually make. |
+
+#### Phase E.3 — Skill packaging (carry-over from P3)
+
+| Item | Why | Trigger |
+|------|-----|---------|
+| `skills/dero-mcp-server/SKILL.md` for Cursor / Claude Code / other skill-aware clients | Single file that teaches an agent the composite-first mental model + the 5 `_meta.error` codes + the read-only boundary. Right now agents have to read the description of each tool to learn this; a skill front-loads the lesson. | When a host explicitly supports skills (Cursor does today; depends on whether Claude / OpenCode adopt the same format). |
+
+#### Phase E.4 — Candidate new composites (do NOT prototype without trigger)
+
+Three composite ideas that survived the design contract's "wedge test" but were not in the Phase C scope. Each is gated on either observed agent failure modes or explicit user demand. **Add ONLY through the design contract in [`docs/composites.md`](./composites.md) — write the design entry, get it reviewed, then implement.**
+
+| Candidate composite | What it would do | Trigger |
+|---------------------|------------------|---------|
+| `dero_resolve_anything` | Takes a single string. Detects whether it's a SCID, tx_hash, registered name, dero address, or block height (heuristic on format) and dispatches to the right primitive/composite. Returns a tagged union so the agent doesn't have to guess. | An agent visibly mis-routes a hash on the first turn often enough to be annoying. |
+| `dero_search_blocks` | Wraps `GetBlock` + iteration over a height range. Filters blocks by predicate (has SC invocations, has X transfers, miner address, etc.). | Someone explicitly asks "show me all blocks where X" via an MCP client and the agent has to write the loop manually. |
+| `dero_walk_tela_index` | Given a TELA-INDEX-1 SCID, walks the dependency graph (manifest → DOC contracts → version chain) and returns the full asset surface in one call. | When a TELA-native agent flow surfaces (TELA-CLI users wanting to inspect deployed apps from chat). |
+
+#### Phase E.5 — Observability + drift detection
+
+| Item | Why | Trigger |
+|------|-----|---------|
+| Per-tool latency budgets in `_diagnostics` with CI assertion | Composites already report `step_latency_ms`. Adding a fail threshold (e.g. `diagnose_chain_health` must complete in < 2s against the public daemon) catches daemon regressions early. | After one CI run fails because a composite was unexpectedly slow. |
+| Bundle freshness check in CI | Asserts `data/docs-index.json` is at most N days behind `dero-docs/main`. Currently the auto-PR ships when dero-docs lands, but a stale dero-mcp-server PR could keep it behind. | After one release ships with a stale bundle. |
+| Smoke probe asserts `dero://mcp/composites` resource is in sync with the actual composite tools (no orphan entries, no missing entries) | Right now the catalog is hand-maintained alongside the tool registrations. A drift guard would prevent the catalog from lying. | Anytime; trivially implementable. |
+
+#### Phase E rejected ideas (record so they don't get re-litigated)
+
+In addition to the rejected designs already in [`composites.md`](./composites.md) (`monitor_address`, `get_richlist`, `compare_two_contracts`, `route_tela_dependencies`), these Phase E ideas were considered and rejected:
+
+- **`dero_subscribe_new_blocks`** — would require long-lived state and streaming, violates request/response. Belongs in a separate transport (SSE / WebSocket) or in the host, not in this MCP.
+- **Wallet-aware composites** (e.g. `dero_estimate_tx_for_balance`) — would require either the wallet RPC URL (violates the strict daemon-only boundary) or careful pre-flight that mocks balance. Defer until the read-only boundary is formally expanded per `docs/decision-boundary.md` § 6 AND-gates.
+- **`dero_normalize_amount`** — pure utility, no chain or docs lookup. Fails the wedge test; agents can do unit conversion in their head or with a math tool.
 
 ---
 
@@ -265,4 +337,4 @@ Borrowed from FNM's CI-gates-as-evidence pattern.
 
 ## 9. One-paragraph summary
 
-DERO MCP already passes the baseline agent-ready bar (stable contract, smoke probes, flow tests, structured errors). As of 2026-05-23, **all three planned phases are shipped**: Phase A (annotations + descriptions + description CI guard + citation helper + citation CI guard), Phase B docs (decision boundary + composites design contract), and Phase C composites — `diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`, and `trace_transaction_with_context` — each shipped as a self-contained commit to main with green flow tests against the public daemon. The wedge is now live: 5 composites that fuse live chain reads with the bundled docs index, something no generic JSON-RPC client can replicate. Future work moves to Phase D ergonomics (resources, prompts catalog refresh, optional `dero_search_blocks`) and is gated on observed agent usage. Skip everything tied to incumbent shape parity, monetization, locale, or routing — those are FNM-specific.
+DERO MCP shipped its first **agent-ready** release on 2026-05-24 as `v0.2.1` (npm: `dero-mcp-server@0.2.1`, registry: `io.github.DHEBP/dero-mcp-server@0.2.1` with `isLatest: true`, GitHub Release tagged + published). Four phases are complete: Phase A (annotations + descriptions + description CI guard + citation helper + citation CI guard), Phase B docs (decision boundary + composites design contract), Phase C composites — `diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`, `trace_transaction_with_context`, each shipped as a self-contained commit with green flow tests against the public daemon — and Phase D composite-first agent surface (3 refreshed prompts, 2 new prompts, +1 resource catalog of all composites, version bump, npm + registry publish). The wedge is now live: 5 composites that fuse live chain reads with the bundled docs index, something no generic JSON-RPC client can replicate, available to anyone running `npx -y dero-mcp-server`. Phase E is a future backlog (polish items, Phase E.2/E.3 carry-overs from the legacy P3 list, three candidate new composites, observability/drift guards) and is **gated on observed agent usage** — items only get started when a trigger condition fires, not on a calendar. Skip everything tied to incumbent shape parity, monetization, locale, or routing — those are FNM-specific.
