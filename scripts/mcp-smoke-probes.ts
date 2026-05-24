@@ -18,6 +18,7 @@ const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
 
 const EXPECTED_TOOLS = [
+  // ---- Primitives ----
   'dero_daemon_ping',
   'dero_daemon_echo',
   'dero_get_info',
@@ -38,6 +39,8 @@ const EXPECTED_TOOLS = [
   'dero_docs_search',
   'dero_docs_get_page',
   'dero_docs_list',
+  // ---- Composites (Phase C) ----
+  'diagnose_chain_health',
 ] as const
 
 const EXPECTED_RESOURCES = [

@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-05-23
 **Repo:** `DHEBP/dero-mcp-server`
-**Status:** v0.1.x has **zero composites shipped**. This document is the design gate every composite change MUST satisfy before being committed to main.
+**Status:** v0.1.x has **1 of 5 composites shipped** (`diagnose_chain_health` landed 2026-05-23 with `flow-diagnose-chain-health` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
 **Workflow:** This repo commits directly to main. Each composite is a single self-contained commit (design entry → implementation → flow test → smoke probe wiring → citation map). There is no PR review step; this doc IS the gate.
 **Source pattern:** Mirrors Food Near Me's `COMPOSITES.md` discipline ([remix/14](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) — "Composite design gate"; FNM proof at `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`).
 
@@ -35,22 +35,26 @@ If a candidate fails the wedge test, drop it. Do not ship "convenience composite
 
 ---
 
-## Shared utilities (build before the first composite)
+## Shared utilities
 
-These belong in `src/composites/_shared.ts` and are required by more than one composite below. Implement them in the first composite commit.
+These live in `src/composites/_shared.ts`. Anything reused by more than one composite belongs here. Composite-local helpers (e.g. narrative builders specific to one composite's response shape) live next to that composite, not in `_shared.ts`.
 
-| Utility | Purpose |
-|---------|---------|
-| `runChain(steps)` | Sequentially executes named steps and accumulates per-step latency + error context, so a composite's failure response can report which step failed. |
-| `summarizeChainHealth(info, height, txPool)` | Pure function — turns three RPC payloads into a `{ status, narrative, signals[] }` block. Reusable across `diagnose_chain_health` and any future "explain network state" composite. |
-| `extractScSurface(getScResult)` | Pure function — derives `{ functions: [name, args?][], stringkeys: string[], uint64keys: string[] }` from a `DERO.GetSC` response. Reusable across `explain_smart_contract`, `trace_transaction_with_context`, and `estimate_deploy_cost`. |
-| `attachCitations(payload, toolName)` | Wraps `relatedDocsFor(toolName)` so every composite emits its citations the same way. |
+| Utility | Status | Purpose |
+|---------|--------|---------|
+| `runChain(steps)` | ✅ shipped 2026-05-23 (composite #1) | Sequentially executes named steps and accumulates per-step latency + error context. Required-step failures halt the chain; non-required failures degrade the payload but allow it to continue. |
+| `stepValue(chain, name)` | ✅ shipped 2026-05-23 (composite #1) | Extract a single successful step's value from a `ChainResult`. Returns `null` for missing/failed steps. |
+| `stepLatencies(chain)` | ✅ shipped 2026-05-23 (composite #1) | Per-step latency map for embedding under a composite's `_diagnostics` field. |
+| `attachCitations(payload, toolName)` | ✅ shipped 2026-05-23 (composite #1) | Wraps `relatedDocsFor(toolName)` so every composite emits its citations the same way. |
+| `extractScSurface(getScResult)` | ⬜ ships with composite #2 (`explain_smart_contract`) | Pure function — derives `{ functions: [name, args?][], stringkeys: string[], uint64keys: string[] }` from a `DERO.GetSC` response. Deferred to the commit that first uses it to avoid shipping dead code. |
+| `summarizeChainHealth(info, height, txPool)` | ✅ shipped 2026-05-23 (composite #1) | Lives **inside** `src/composites/diagnose-chain-health.ts`, not `_shared.ts`, because the shape is tightly coupled to composite #1's response and is not reused. Documented here so future contributors know where to find it. |
 
 ---
 
 ## Composite catalogue
 
-### 1. `diagnose_chain_health` — decorator-style, lowest risk
+### 1. `diagnose_chain_health` — decorator-style, lowest risk ✅ shipped 2026-05-23
+
+**Status:** Implemented in `src/composites/diagnose-chain-health.ts`. Flow test `flow-diagnose-chain-health` in `scripts/flow-composites.ts` passes against the public daemon (status=`healthy`, 5 signals, ~140-char narrative, 2 citations, ~840ms total). Wired into the CI workflow.
 
 **Wedge:** Replaces four round-trips (ping, info, height, tx_pool) and the user's "what does this field mean?" docs lookup with a single narrative answer + citation.
 
@@ -282,13 +286,13 @@ z.object({
 
 ## Sequencing summary (ship order)
 
-| Order | Composite | Why this order |
-|------:|-----------|---------------|
-| 1 | `diagnose_chain_health` | Proves composite plumbing with zero new schemas. |
-| 2 | `explain_smart_contract` | Establishes SC-surface extraction reused by 4 & 5. |
-| 3 | `recommend_docs_path` | Docs-only composite — independent of chain semantics. |
-| 4 | `estimate_deploy_cost` | Reuses SC surface; numeric care required. |
-| 5 | `trace_transaction_with_context` | Highest fan-out + failure-mode count; ship last. |
+| Order | Composite | Status | Why this order |
+|------:|-----------|--------|---------------|
+| 1 | `diagnose_chain_health` | ✅ shipped 2026-05-23 | Proved composite plumbing with zero new schemas. |
+| 2 | `explain_smart_contract` | ⬜ pending | Establishes SC-surface extraction reused by 4 & 5. |
+| 3 | `recommend_docs_path` | ⬜ pending | Docs-only composite — independent of chain semantics. |
+| 4 | `estimate_deploy_cost` | ⬜ pending | Reuses SC surface; numeric care required. |
+| 5 | `trace_transaction_with_context` | ⬜ pending | Highest fan-out + failure-mode count; ship last. |
 
 One composite per commit. Each commit adds: the section already in this doc (or a small refinement of it) + the implementation + the flow test + the smoke probe entry + the citation map entry. Keep commits small and self-contained so a `git revert` cleanly removes one composite without disturbing the others.
 

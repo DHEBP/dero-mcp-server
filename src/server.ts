@@ -9,6 +9,10 @@ import {
 } from './docs.js'
 import { DERO_TOOL_NAMES, TOOL_DESCRIPTIONS } from './tool-descriptions.js'
 import { relatedDocsFor } from './citations.js'
+import {
+  diagnoseChainHealth,
+  diagnoseChainHealthInputSchema,
+} from './composites/diagnose-chain-health.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -586,6 +590,23 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
         pages: docsIndex.pages.slice(0, capped),
       }
     }),
+  )
+
+  // ---------- Composite tools (Phase C) ----------
+  // Composites chain read-only primitives and bundled docs into
+  // intent-shaped responses. Each composite has a design entry in
+  // `docs/composites.md` that pins its input schema, internal chain,
+  // response shape, failure modes, and flow test ID.
+
+  server.registerTool(
+    'diagnose_chain_health',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.diagnose_chain_health,
+      inputSchema: diagnoseChainHealthInputSchema,
+    }),
+    withStructuredErrors('diagnose_chain_health', async (args) =>
+      diagnoseChainHealth(rpc, args ?? {}),
+    ),
   )
 
   server.registerResource(

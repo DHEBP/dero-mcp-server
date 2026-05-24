@@ -51,6 +51,11 @@ jobs:
           # Override with repository secret if you have a dedicated test daemon
           DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
 
+      - name: Run composite flow tests
+        run: npm run test:composites
+        env:
+          DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
+
   typecheck:
     runs-on: ubuntu-latest
 

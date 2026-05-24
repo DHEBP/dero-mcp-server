@@ -29,6 +29,7 @@
     "smoke:mcp": "npx tsx scripts/mcp-smoke-probes.ts",
     "smoke:docs": "npx tsx scripts/docs-smoke-probes.ts",
     "test:flows": "npx tsx scripts/flow-test.ts",
+    "test:composites": "npx tsx scripts/flow-composites.ts",
     "check:mcp-descriptions": "npx tsx scripts/check-mcp-descriptions.ts",
     "check:citations": "npx tsx scripts/check-citations.ts",
     "typecheck": "tsc --noEmit"

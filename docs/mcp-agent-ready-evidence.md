@@ -18,11 +18,11 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 
 | Primitive | Count | Notes |
 |---|---:|---|
-| Tools | 20 | Daemon reads + bundled docs (`dero_docs_*`, 145 pages). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
+| Tools | 21 | 20 daemon-read + bundled-docs primitives plus 1 composite (`diagnose_chain_health`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
 | Resources | 3 | Server info, safety boundary, example flows |
 | Prompts | 3 | Network health, SC inspection, tx tracing |
-| Curated docs citations | 6 | Across 3 primitives (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`). Validated against the bundled index in CI. |
-| Composite tools | 0 | Five designed in [`composites.md`](./composites.md); none implemented yet. |
+| Curated docs citations | 8 | Across 4 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`). Validated against the bundled index in CI. |
+| Composite tools | 1 of 5 | `diagnose_chain_health` shipped 2026-05-23 (`flow-diagnose-chain-health` green). Remaining four designed in [`composites.md`](./composites.md), pending ship order. |
 
 ---
 
@@ -34,10 +34,10 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 npm run smoke:mcp
 ```
 
-Result (latest run, 2026-05-23):
+Result (latest run, 2026-05-23 after composite #1):
 
-- `tools/list` parity: **20**
-- Read-only annotations on every tool: **20/20**
+- `tools/list` parity: **21**
+- Read-only annotations on every tool: **21/21**
 - `resources/list` parity: **3**
 - `prompts/list` parity: **3**
 - `prompts/get` check: **pass**
@@ -101,12 +101,13 @@ Write operations must remain outside this server unless every gating condition i
 Current CI runs (in order):
 
 1. `npm run build`
-2. `npm run check:mcp-descriptions` — enforces the four-section agent-instruction template on all 20 tool descriptions.
+2. `npm run check:mcp-descriptions` — enforces the four-section agent-instruction template on all 21 tool descriptions.
 3. `npm run check:citations` — validates every curated docs citation slug + title resolves against the bundled index.
 4. `npm run smoke:mcp` — includes annotation parity assertion and `related_docs` smoke check.
 5. `npm run smoke:docs`
-6. `npm run test:flows`
-7. `tsc --noEmit`
+6. `npm run test:flows` — raw daemon JSON-RPC flows.
+7. `npm run test:composites` — MCP-transport flow tests for composite tools. Each composite added to this repo MUST add its flow test here in the same commit.
+8. `tsc --noEmit`
 
 ---
 
@@ -115,7 +116,7 @@ Current CI runs (in order):
 - Wallet-write support (intentionally deferred — see [`decision-boundary.md`](./decision-boundary.md) § "Moving the boundary" for the gating conditions)
 - Streamable HTTP/SSE transport (not required for current stdio-first strategy)
 - Domain DNS discovery artifacts (`.well-known`, `_mcp`, `_agentroot`, `_llms`) until remote transport exists
-- Composite tools (5 designed in [`composites.md`](./composites.md); ship order: `diagnose_chain_health` → `explain_smart_contract` → `recommend_docs_path` → `estimate_deploy_cost` → `trace_transaction_with_context`, one self-contained commit to main each)
+- Composite tools — 1 of 5 shipped. Remaining four in [`composites.md`](./composites.md) ship order: `explain_smart_contract` → `recommend_docs_path` → `estimate_deploy_cost` → `trace_transaction_with_context`, one self-contained commit to main each.
 - Runtime tool filtering via `DERO_MCP_ENABLED_TOOLS` env allowlist
 - Input ergonomics: camelCase aliases on the top-3 most-called tools
 

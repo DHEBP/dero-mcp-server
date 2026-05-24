@@ -5,7 +5,7 @@
 **Audience:** maintainers planning the next utility step beyond the v0.1 agent-ready baseline.
 **Source pattern:** Food Near Me Phase 7 — see [`/Users/home/projects/docs/AI Agent Ready/remix/14-competitive-mcp-shape-parity-and-composites.md`](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) and the FNM composite contract in `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`.
 
-> **Status:** Phase A (annotations + descriptions + CI guard + citation foundation) and Phase B docs (decision boundary + composites design contract) **shipped 2026-05-23**. See § 5 for current status per item. Phase C (composite implementations) is unstarted.
+> **Status:** Phase A (annotations + descriptions + CI guard + citation foundation) and Phase B docs (decision boundary + composites design contract) **shipped 2026-05-23**. Phase C composite #1 (`diagnose_chain_health`) also **shipped 2026-05-23** with `flow-diagnose-chain-health` green against the public daemon. See § 5 for current status per item.
 
 > **What this doc is.** A planning artifact tracking which FNM Phase 7 learnings transfer to DERO MCP, which intentionally do not, and a prioritized order for the utility cycle. Use it to scope the next backlog.
 
@@ -199,8 +199,8 @@ Phased so each level lands a measurable utility win without rewriting the surfac
 
 | Status | Item |
 |--------|------|
-| ⬜ pending | Ship `diagnose_chain_health` — decorator-style, lowest risk. Proves composite plumbing end-to-end. |
-| ⬜ pending | Ship `explain_smart_contract` — wedge-defining composite. Establishes SC-surface extraction reused by P2 items 4 & 5. |
+| ✅ shipped 2026-05-23 | Ship `diagnose_chain_health` — decorator-style, lowest risk. Proved the composite plumbing (`src/composites/_shared.ts` shared utils + `scripts/flow-composites.ts` flow runner + smoke probe + CI step) end-to-end. |
+| ⬜ pending | Ship `explain_smart_contract` — wedge-defining composite. Establishes SC-surface extraction (`extractScSurface` shared util) reused by P2 items 4 & 5. |
 | ⬜ pending | Ship `recommend_docs_path` — bridges intent → bundled docs. Docs-only composite. |
 | ⬜ pending | Ship `estimate_deploy_cost` — numeric pre-flight, needs care around gas semantics. |
 | ⬜ pending | Ship `trace_transaction_with_context` — biggest composite; do last. |

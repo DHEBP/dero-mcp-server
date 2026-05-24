@@ -214,6 +214,15 @@ Input Requirements:
 - \`limit\` is OPTIONAL (default 120, max 500).
 
 Output: \`{ docs_source, total, products, pages: [{ product, slug, title, canonical_url, last_updated }] }\`.`,
+
+  diagnose_chain_health: `Composite: run a four-step chain (DERO.Ping → DERO.GetInfo → DERO.GetHeight → DERO.GetTxPool) and return a single narrative health report with chain metadata, mempool snapshot, machine-readable signals, and curated docs citations.
+
+When to call: as the first step in any chain-state investigation when the user asks "is the node healthy", "is it synced", or "what is the current state of the chain". PREFER this over chaining the four primitives yourself — the composite handles partial-failure modes and lag-depth classification consistently, and the response already cites the right docs page.
+
+Input Requirements:
+- \`include_tx_pool\` is OPTIONAL (default true). Set false to skip the mempool snapshot when you only need chain-tip status.
+
+Output: \`{ status, narrative, signals[], chain, mempool, related_docs, _diagnostics }\`. \`status\` is one of \`healthy | lagging | partial | unreachable\`. \`chain\` is null when DERO.GetInfo was unreachable; \`mempool\` is null when skipped or the call failed. On total daemon unreachability the tool returns a structured \`_meta.error\` with code \`RPC_UNREACHABLE\`.`,
 } as const
 
 export type DeroToolName = keyof typeof TOOL_DESCRIPTIONS

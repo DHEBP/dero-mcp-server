@@ -112,6 +112,18 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'Create, Deploy & Use a Smart Contract on DERO | Step-by-Step Tutorial',
     },
   ],
+  diagnose_chain_health: [
+    {
+      product: 'derod',
+      slug: 'basics/daemon',
+      title: 'DERO Daemon: Backbone of the Privacy Blockchain | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'rpc-api/daemon-rpc-api',
+      title: 'DERO Daemon RPC API: Complete Reference Guide | DERO Blockchain',
+    },
+  ],
 } as const
 
 /**
