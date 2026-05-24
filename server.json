@@ -3,7 +3,7 @@
   "name": "io.github.DHEBP/dero-mcp-server",
   "title": "DERO MCP Server",
   "description": "Read-only DERO daemon MCP server. 20 daemon-read + bundled-docs primitives plus 5 composites (diagnose_chain_health, explain_smart_contract, recommend_docs_path, estimate_deploy_cost, trace_transaction_with_context) that fuse live chain reads with the bundled DERO docs index. Every tool carries read-only annotations and structured _meta.error codes for safe agent auto-approve.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://derod.org",
   "repository": {
     "url": "https://github.com/DHEBP/dero-mcp-server",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dero-mcp-server",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       }
