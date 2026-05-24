@@ -5,7 +5,7 @@
 **Audience:** maintainers planning the next utility step beyond the v0.1 agent-ready baseline.
 **Source pattern:** Food Near Me Phase 7 — see [`/Users/home/projects/docs/AI Agent Ready/remix/14-competitive-mcp-shape-parity-and-composites.md`](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) and the FNM composite contract in `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`.
 
-> **Status:** Phase A (annotations + descriptions + CI guard + citation foundation) and Phase B docs (decision boundary + composites design contract) **shipped 2026-05-23**. Phase C composites #1 (`diagnose_chain_health`) and #2 (`explain_smart_contract`) also **shipped 2026-05-23** with `flow-diagnose-chain-health` and `flow-explain-name-registry` green against the public daemon. See § 5 for current status per item.
+> **Status:** Phase A (annotations + descriptions + CI guard + citation foundation) and Phase B docs (decision boundary + composites design contract) **shipped 2026-05-23**. Phase C composites #1–#3 (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`) also **shipped 2026-05-23** with their flow tests green against the public daemon. See § 5 for current status per item.
 
 > **What this doc is.** A planning artifact tracking which FNM Phase 7 learnings transfer to DERO MCP, which intentionally do not, and a prioritized order for the utility cycle. Use it to scope the next backlog.
 
@@ -201,7 +201,7 @@ Phased so each level lands a measurable utility win without rewriting the surfac
 |--------|------|
 | ✅ shipped 2026-05-23 | Ship `diagnose_chain_health` — decorator-style, lowest risk. Proved the composite plumbing (`src/composites/_shared.ts` shared utils + `scripts/flow-composites.ts` flow runner + smoke probe + CI step) end-to-end. |
 | ✅ shipped 2026-05-23 | Ship `explain_smart_contract` — wedge-defining composite. Established `extractScSurface` (now in `_shared.ts`) for reuse by P2 items 4 & 5; flow tested against the on-chain name registry. |
-| ⬜ pending | Ship `recommend_docs_path` — bridges intent → bundled docs. Docs-only composite. |
+| ✅ shipped 2026-05-23 | Ship `recommend_docs_path` — bridges intent → bundled docs. Docs-only composite; always fans out to all 4 products, applies 1.5× boost to `product_hint` matches, surfaces `NO_DOCS_MATCH` failure mode via a new classifier branch in `withStructuredErrors`. |
 | ⬜ pending | Ship `estimate_deploy_cost` — numeric pre-flight, needs care around gas semantics. |
 | ⬜ pending | Ship `trace_transaction_with_context` — biggest composite; do last. |
 

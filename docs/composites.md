@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-05-23
 **Repo:** `DHEBP/dero-mcp-server`
-**Status:** v0.1.x has **2 of 5 composites shipped** (`diagnose_chain_health` + `explain_smart_contract`, both landed 2026-05-23 with `flow-diagnose-chain-health` and `flow-explain-name-registry` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
+**Status:** v0.1.x has **3 of 5 composites shipped** (`diagnose_chain_health`, `explain_smart_contract`, and `recommend_docs_path` — all landed 2026-05-23 with `flow-diagnose-chain-health`, `flow-explain-name-registry`, `flow-recommend-docs-deploy-tela`, and `flow-recommend-docs-no-match` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
 **Workflow:** This repo commits directly to main. Each composite is a single self-contained commit (design entry → implementation → flow test → smoke probe wiring → citation map). There is no PR review step; this doc IS the gate.
 **Source pattern:** Mirrors Food Near Me's `COMPOSITES.md` discipline ([remix/14](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) — "Composite design gate"; FNM proof at `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`).
 
@@ -151,7 +151,11 @@ z.object({
 
 ---
 
-### 3. `recommend_docs_path` — intent → docs bridge
+### 3. `recommend_docs_path` — intent → docs bridge ✅ shipped 2026-05-23
+
+**Status:** Implemented in `src/composites/recommend-docs-path.ts`. Flow tests `flow-recommend-docs-deploy-tela` (boost-elevates TELA above other product hits for intent "deploy a TELA app", 8 recommendations, 2 citations) and `flow-recommend-docs-no-match` (nonsense intent → `_meta.error.code = NO_DOCS_MATCH`) both pass against the bundled docs index. `rankRecommendations` is exported from the composite module for reuse / future unit tests.
+
+**Design clarification (recorded in the composite module header):** the design text in step 1 ("for each product, or just `product_hint` if provided") reads like a filter, but step 2's scoring rule ("score × productHintBoost (1.5× for hint matches)") only makes sense if all four products are always searched and the hint is treated as a BIAS, not a FILTER. Treating the hint as a filter would make the boost a uniform no-op. The shipped implementation always searches all four products and applies the 1.5× boost to hint-matching scores. A new classifier branch `NO_DOCS_MATCH` was added to `src/server.ts` to surface the no-match failure mode through the existing `withStructuredErrors` wrapper (consistent with the existing `DOC_NOT_FOUND` pattern).
 
 **Wedge:** Agents currently must guess which docs product to search. This composite takes a natural-language intent, runs scoped searches across all four products, and returns a ranked path with rationale. Useful for one-shot questions before deciding which deeper tool to call.
 
@@ -292,7 +296,7 @@ z.object({
 |------:|-----------|--------|---------------|
 | 1 | `diagnose_chain_health` | ✅ shipped 2026-05-23 | Proved composite plumbing with zero new schemas. |
 | 2 | `explain_smart_contract` | ✅ shipped 2026-05-23 | Established `extractScSurface` (now in `_shared.ts`) for reuse by composites 4 & 5. |
-| 3 | `recommend_docs_path` | ⬜ pending | Docs-only composite — independent of chain semantics. |
+| 3 | `recommend_docs_path` | ✅ shipped 2026-05-23 | Docs-only composite — independent of chain semantics. Added `NO_DOCS_MATCH` classifier branch. |
 | 4 | `estimate_deploy_cost` | ⬜ pending | Reuses SC surface; numeric care required. |
 | 5 | `trace_transaction_with_context` | ⬜ pending | Highest fan-out + failure-mode count; ship last. |
 

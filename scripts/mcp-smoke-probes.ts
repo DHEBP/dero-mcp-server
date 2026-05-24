@@ -42,6 +42,7 @@ const EXPECTED_TOOLS = [
   // ---- Composites (Phase C) ----
   'diagnose_chain_health',
   'explain_smart_contract',
+  'recommend_docs_path',
 ] as const
 
 const EXPECTED_RESOURCES = [

@@ -17,6 +17,10 @@ import {
   explainSmartContract,
   explainSmartContractInputSchema,
 } from './composites/explain-smart-contract.js'
+import {
+  recommendDocsPath,
+  recommendDocsPathInputSchema,
+} from './composites/recommend-docs-path.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -107,6 +111,14 @@ function classifyToolError(error: unknown): StructuredToolError {
     return {
       code: 'DOC_NOT_FOUND',
       hint: 'Use dero_docs_search or dero_docs_list to discover valid slugs, then retry.',
+      retryable: false,
+    }
+  }
+
+  if (message.includes('No DERO docs matched intent')) {
+    return {
+      code: 'NO_DOCS_MATCH',
+      hint: 'Rephrase the intent (drop verbs, use product nouns like "TELA app" or "DVM contract"), then retry. You can also pass product_hint to bias the search.',
       retryable: false,
     }
   }
@@ -622,6 +634,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     withStructuredErrors('explain_smart_contract', async (args) =>
       explainSmartContract(rpc, args),
     ),
+  )
+
+  server.registerTool(
+    'recommend_docs_path',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.recommend_docs_path,
+      inputSchema: recommendDocsPathInputSchema,
+    }),
+    withStructuredErrors('recommend_docs_path', async (args) => recommendDocsPath(args)),
   )
 
   server.registerResource(

@@ -215,6 +215,17 @@ Input Requirements:
 
 Output: \`{ docs_source, total, products, pages: [{ product, slug, title, canonical_url, last_updated }] }\`.`,
 
+  recommend_docs_path: `Composite: take a natural-language intent, fan out parallel scoped searches across the bundled docs for all four DERO products (derod, tela, hologram, deropay), boost any product_hint matches by 1.5×, and return a ranked recommendation list with per-result rationale plus ready-to-cite related_docs.
+
+When to call: at the START of any "where do I read about X?" or "which docs cover Y?" investigation, BEFORE calling dero_docs_search directly. PREFER this over guessing the right product: this composite already runs all four products in parallel, dedupes overlap, surfaces the top heading per result as rationale, and gives you the top-2 citations pre-built. Pass product_hint when the user has already said e.g. "TELA" or "DeroPay" so that product's matches float to the top.
+
+Input Requirements:
+- \`intent\` is REQUIRED. Free-text description of what the user is trying to do (min 8 chars). Drop verbs and use product nouns like "deploy a TELA app" or "verify a DeroPay webhook signature" for best results.
+- \`product_hint\` is OPTIONAL. One of \`derod | tela | hologram | deropay\`. Multiplies hint-product scores by 1.5×.
+- \`limit_per_product\` is OPTIONAL (default 2, max 5). Cap per-product hits before merging.
+
+Output: \`{ intent, product_hint, limit_per_product, recommended: [{ product, slug, title, canonical_url, score, boosted_score, rationale }], by_product: { derod | tela | hologram | deropay: { count, top_slug, top_score } }, related_docs: DeroCitation[] }\`. \`related_docs\` is the top-2 picks pre-built as citations the agent can drop straight into a response. On zero matches across every product the composite returns a structured \`_meta.error\` with code \`NO_DOCS_MATCH\` and a hint to rephrase or drop the product_hint.`,
+
   explain_smart_contract: `Composite: fetch a DERO smart contract (code + variables + balances) and return its function surface, a classification of the contract pattern (token | registry | minimal | generic), a plain-language narrative, and curated DVM docs citations re-ordered so the most relevant page is first.
 
 When to call: when the user wants to UNDERSTAND a smart contract — its functions, state shape, or which DVM concept to read about. PREFER this over chaining dero_get_sc with a docs lookup yourself: this composite already parses the DVM-BASIC source for function declarations, sorts stringkeys/uint64keys deterministically, and picks the right docs page from a heuristic so the agent does not have to learn DVM-BASIC syntax to summarize a contract.

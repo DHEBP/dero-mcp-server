@@ -61,6 +61,32 @@ type Citation = {
   page_id?: string
 }
 
+type RecommendDocsPathPayload = {
+  intent?: string
+  product_hint?: 'derod' | 'tela' | 'hologram' | 'deropay' | null
+  limit_per_product?: number
+  recommended?: Array<{
+    product: 'derod' | 'tela' | 'hologram' | 'deropay'
+    slug: string
+    title: string
+    canonical_url: string
+    score: number
+    boosted_score: number
+    rationale: string
+  }>
+  by_product?: Record<
+    'derod' | 'tela' | 'hologram' | 'deropay',
+    { count: number; top_slug: string | null; top_score: number | null }
+  >
+  related_docs?: Citation[]
+}
+
+type StructuredErrorPayload = {
+  ok?: boolean
+  tool?: string
+  _meta?: { error?: { code?: string; hint?: string; raw?: string; retryable?: boolean } }
+}
+
 type ExplainSmartContractPayload = {
   scid?: string
   topoheight?: number | null
@@ -258,6 +284,108 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
   )
 }
 
+/**
+ * flow-recommend-docs-deploy-tela — `docs/composites.md` § 3.
+ *
+ * Asserts:
+ *  - At least one TELA recommendation is returned for the intent
+ *    "deploy a TELA app".
+ *  - Every recommendation has a valid canonical URL and a non-empty
+ *    rationale string.
+ *  - No duplicate (product, slug) pairs.
+ *  - `by_product.tela.count` ≥ 1 and points at a valid slug.
+ *  - `related_docs.length ≥ 1` and every entry is well-formed.
+ *  - With `product_hint=tela`, the top result is from product=tela
+ *    (1.5× boost should float TELA hits above competing products).
+ */
+async function flowRecommendDocsDeployTela(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'recommend_docs_path',
+    arguments: { intent: 'deploy a TELA app', product_hint: 'tela' },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as RecommendDocsPathPayload
+
+  if (!Array.isArray(payload.recommended) || payload.recommended.length === 0) {
+    throw new Error('recommend_docs_path: recommended[] missing or empty')
+  }
+
+  const seenKeys = new Set<string>()
+  let telaCount = 0
+  for (const rec of payload.recommended) {
+    const key = `${rec.product}::${rec.slug}`
+    if (seenKeys.has(key)) {
+      throw new Error(`recommend_docs_path: duplicate recommendation ${key}`)
+    }
+    seenKeys.add(key)
+    if (typeof rec.canonical_url !== 'string' || !rec.canonical_url.startsWith('https://')) {
+      throw new Error(`recommend_docs_path: bad canonical_url on ${key}`)
+    }
+    if (typeof rec.rationale !== 'string' || rec.rationale.length < 20) {
+      throw new Error(`recommend_docs_path: rationale too short on ${key}`)
+    }
+    if (typeof rec.boosted_score !== 'number' || rec.boosted_score <= 0) {
+      throw new Error(`recommend_docs_path: invalid boosted_score on ${key}`)
+    }
+    if (rec.product === 'tela') telaCount += 1
+  }
+  if (telaCount === 0) {
+    throw new Error('recommend_docs_path: expected at least one TELA recommendation')
+  }
+  if (payload.recommended[0].product !== 'tela') {
+    throw new Error(
+      `recommend_docs_path: with product_hint=tela the top result should be product=tela, got "${payload.recommended[0].product}"`,
+    )
+  }
+
+  if (!payload.by_product?.tela || payload.by_product.tela.count < 1) {
+    throw new Error('recommend_docs_path: by_product.tela.count should be ≥ 1')
+  }
+  if (!payload.by_product.tela.top_slug) {
+    throw new Error('recommend_docs_path: by_product.tela.top_slug missing')
+  }
+
+  if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
+    throw new Error('recommend_docs_path: related_docs missing or empty')
+  }
+  for (const cite of payload.related_docs) {
+    assertCitation(cite, 'recommend_docs_path.related_docs')
+  }
+
+  console.log(
+    `OK  flow-recommend-docs-deploy-tela (recommended=${payload.recommended.length}, tela=${telaCount}, top=${payload.recommended[0].product}::${payload.recommended[0].slug}, citations=${payload.related_docs.length})`,
+  )
+}
+
+/**
+ * flow-recommend-docs-no-match — covers the `NO_DOCS_MATCH` failure
+ * mode in `docs/composites.md` § 3. Asserts the composite emits a
+ * structured `_meta.error` with code `NO_DOCS_MATCH` for an
+ * intentionally nonsense intent that should not match any bundled
+ * docs page.
+ */
+async function flowRecommendDocsNoMatch(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'recommend_docs_path',
+    arguments: { intent: 'zzqxylophonewombat zzqxylophonewombat zzqxylophonewombat' },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as StructuredErrorPayload
+  if (payload?.ok !== false || payload?._meta?.error?.code !== 'NO_DOCS_MATCH') {
+    throw new Error(
+      `recommend_docs_path: expected _meta.error.code=NO_DOCS_MATCH for nonsense intent, got ${JSON.stringify(payload).slice(0, 200)}`,
+    )
+  }
+  if (typeof payload._meta.error.hint !== 'string' || payload._meta.error.hint.length < 20) {
+    throw new Error('recommend_docs_path: NO_DOCS_MATCH hint missing or too short')
+  }
+  console.log(
+    `OK  flow-recommend-docs-no-match (code=${payload._meta.error.code}, hint_len=${payload._meta.error.hint.length})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -282,6 +410,8 @@ async function main(): Promise<void> {
 
     await flowDiagnoseChainHealth(client)
     await flowExplainNameRegistry(client)
+    await flowRecommendDocsDeployTela(client)
+    await flowRecommendDocsNoMatch(client)
 
     console.log('')
     console.log('All composite flow tests passed.')
