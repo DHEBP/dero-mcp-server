@@ -274,7 +274,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     deroJsonRpc<T>(endpoint, method, params)
   const server = new McpServer({
     name: 'dero-daemon-mcp',
-    version: '0.2.1',
+    version: '0.2.2',
   })
 
   server.registerTool(
@@ -707,7 +707,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: JSON.stringify(
             {
               name: 'dero-daemon-mcp',
-              version: '0.2.1',
+              version: '0.2.2',
               mode: 'read-only',
               endpoint: endpoint,
               docs_products: DERO_DOC_PRODUCTS,
