@@ -50,12 +50,15 @@ const DERO_RESOURCE_URIS = [
   'dero://mcp/server-info',
   'dero://mcp/safety-boundary',
   'dero://mcp/example-flows',
+  'dero://mcp/composites',
 ] as const
 
 const DERO_PROMPT_NAMES = [
   'network_health_check',
   'inspect_smart_contract',
   'trace_transaction',
+  'find_dero_docs_for_intent',
+  'estimate_deploy_for_contract',
 ] as const
 
 const deroDocProductSchema = z.enum(DERO_DOC_PRODUCTS)
@@ -761,7 +764,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'dero_mcp_example_flows',
     'dero://mcp/example-flows',
     {
-      description: 'Compact agent flow recipes for common DERO investigations.',
+      description: 'Compact agent flow recipes for common DERO investigations. Composites are listed FIRST; primitives are the fallback path.',
       mimeType: 'text/markdown',
     },
     async (uri) => ({
@@ -772,11 +775,103 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: [
             '# DERO MCP Example Flows',
             '',
-            '- Network health: `dero_daemon_ping` -> `dero_get_info` -> `dero_get_height`',
-            `- Inspect SC state: \`dero_get_sc\` with SCID (name registry: \`${NAME_REGISTRY_SCID}\`)`,
-            '- Trace transaction: `dero_get_transaction` with `decode_as_json: 1`',
-            '- Read-only boundary: no wallet writes or raw tx submission',
+            'Prefer composites — each is one call replacing a primitive chain, and each returns a narrative + curated docs citations.',
+            '',
+            '## Composites (preferred)',
+            '',
+            '- **Network health**: call `diagnose_chain_health` (no args). Returns narrative + signals + citations in one shot.',
+            `- **Inspect a contract**: call \`explain_smart_contract\` with the SCID. For example, the name registry: \`${NAME_REGISTRY_SCID}\`.`,
+            '- **Trace a transaction**: call `trace_transaction_with_context` with the tx_hash. Handles SC install surface extraction inline.',
+            '- **Find the right docs**: call `recommend_docs_path` with a natural-language intent (e.g. "deploy a TELA app"). Optional `product_hint` biases the score 1.5x toward that product.',
+            '- **Pre-flight a deploy**: call `estimate_deploy_cost` with the DVM-BASIC source. Returns gas estimate + plain-text breakdown + parsed surface.',
+            '',
+            '## Primitive fallback paths (only when a composite is unavailable or returns _meta.error)',
+            '',
+            '- Network: `dero_daemon_ping` → `dero_get_info` → `dero_get_height` → `dero_get_tx_pool`',
+            '- Contract: `dero_get_sc` (code=true, variables=true) then optionally `dero_docs_get_page`',
+            '- Transaction: `dero_get_transaction` (decode_as_json=1) — does NOT decode SC invocation args',
+            '- Docs: `dero_docs_search` (then `dero_docs_get_page` for full text)',
+            '- Deploy estimate: `dero_get_gas_estimate`',
+            '',
+            '## Structured error codes (`_meta.error.code`) the agent should react to',
+            '',
+            '- `NO_DOCS_MATCH` (recommend_docs_path): rephrase the intent, retry. Not a hard failure.',
+            '- `INVALID_INPUT` (estimate_deploy_cost): the daemon\'s raw -32098 compile message is in `_meta.error.raw`; surface it to the user.',
+            '- `TX_NOT_FOUND` (trace_transaction_with_context): the daemon returned an empty record. Retryable=true (mempool propagation), but only after verifying the hash and network.',
+            '',
+            '## Read-only boundary',
+            '',
+            'No wallet writes. No raw tx submission. No contract invocation. See `dero://mcp/safety-boundary` and `dero://mcp/composites` for the full posture.',
           ].join('\n'),
+        },
+      ],
+    }),
+  )
+
+  server.registerResource(
+    'dero_mcp_composites',
+    'dero://mcp/composites',
+    {
+      description: 'Catalog of the 5 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
+      mimeType: 'application/json',
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: 'application/json',
+          text: JSON.stringify(
+            {
+              version: 1,
+              note: 'Composites fuse one or more daemon-read primitives with bundled-docs lookups and emit a single narrative + curated related_docs. Always prefer the composite when its intent matches the user request.',
+              composites: [
+                {
+                  name: 'diagnose_chain_health',
+                  replaces: ['dero_daemon_ping', 'dero_get_info', 'dero_get_height', 'dero_get_tx_pool'],
+                  when_to_call: 'User asks "is the chain healthy", "are we synced", "what is the network state", or any general daemon-status question.',
+                  inputs: { include_tx_pool: 'optional boolean, default true' },
+                  output_highlights: ['status (healthy | degraded | unreachable)', 'signals (e.g. healthy, stale-tip, lagging)', 'tip metadata', 'narrative', 'related_docs'],
+                  error_codes: ['RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'explain_smart_contract',
+                  replaces: ['dero_get_sc + manual parsing + dero_docs_search'],
+                  when_to_call: 'User wants to UNDERSTAND a contract (functions, state shape, what DVM concept to read about). NOT for raw variable inspection — use dero_get_sc for that.',
+                  inputs: { scid: '64-char hex SCID', topoheight: 'optional number' },
+                  output_highlights: ['kind (token | registry | minimal | generic)', 'surface (functions, stringkeys, uint64keys, balances)', 'narrative', '1-4 curated DVM docs citations re-ranked for the contract pattern'],
+                  error_codes: ['RPC_UNREACHABLE', 'RPC_INVALID_PARAMS'],
+                },
+                {
+                  name: 'recommend_docs_path',
+                  replaces: ['4x parallel dero_docs_search calls + manual ranking'],
+                  when_to_call: 'User has a natural-language intent ("deploy a TELA app", "estimate gas") and needs to know which doc page to read. Bias-not-filter on product_hint.',
+                  inputs: { intent: 'short natural-language string', product_hint: 'optional derod | tela | hologram | deropay', limit_per_product: 'optional number, default 2' },
+                  output_highlights: ['recommended[] with score/boosted_score/rationale', 'summary_by_product', 'related_docs'],
+                  error_codes: ['NO_DOCS_MATCH'],
+                },
+                {
+                  name: 'estimate_deploy_cost',
+                  replaces: ['dero_get_gas_estimate + manual surface extraction + manual interpretation of gascompute/gasstorage'],
+                  when_to_call: 'User wants to deploy a contract and needs to know what it will cost. Read-only; nothing is submitted.',
+                  inputs: { sc: 'DVM-BASIC source string', include_breakdown: 'optional boolean, default true' },
+                  output_highlights: ['estimate (gascompute, gasstorage, total, status)', 'breakdown (compute_note, storage_note) | null', 'surface (functions, stringkeys, uint64keys)'],
+                  error_codes: ['INVALID_INPUT (wraps daemon -32098 DVM compile errors; raw message in _meta.error.raw)', 'RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'trace_transaction_with_context',
+                  replaces: ['dero_get_transaction + (for SC installs) dero_get_sc + manual classification'],
+                  when_to_call: 'User asks "what is this tx", "is this confirmed", "what contract did this deploy", "what does this tx do".',
+                  inputs: { tx_hash: '64-char hex', decode: 'optional boolean, default true', include_sc_context: 'optional boolean, default true' },
+                  output_highlights: ['confirmation (status, block_height, valid_block, in_pool)', 'kind (sc_install | transfer_or_invocation | coinbase | unknown)', 'ring (groups, first_group_size)', 'sc_install (scid + parsed surface) | null', 'raw_tx_hex_length', 'narrative', 'related_docs'],
+                  scope_note: 'SC invocation arg decoding is NOT performed (would require the binary tx codec). SC INSTALL surface extraction IS performed inline because the source is embedded in the tx record.',
+                  error_codes: ['TX_NOT_FOUND (retryable=true; daemon returns empty record on unknown hashes)', 'RPC_UNREACHABLE'],
+                },
+              ],
+              design_contract_doc: 'docs/composites.md in the dero-mcp-server repo',
+            },
+            null,
+            2,
+          ),
         },
       ],
     }),
@@ -785,7 +880,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   server.registerPrompt(
     'network_health_check',
     {
-      description: 'Guide the model through a DERO daemon sync and health check sequence.',
+      description: 'Guide the model through a DERO daemon sync and health check using the diagnose_chain_health composite.',
       argsSchema: {
         reference_topoheight: z
           .number()
@@ -795,20 +890,24 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       },
     },
     async ({ reference_topoheight }) => ({
-      description: 'Prompt for sync health investigation.',
+      description: 'Prompt for sync health investigation (composite-first).',
       messages: [
         {
           role: 'user',
           content: {
             type: 'text',
             text: [
-              'Check DERO daemon health using MCP tools.',
-              '1) Call dero_daemon_ping.',
-              '2) Call dero_get_info and dero_get_height.',
-              '3) Report topoheight, stableheight, version, and network.',
+              'Check DERO daemon health using the MCP composite tools (one call replaces the old four-step chain).',
+              '',
+              '1) Call diagnose_chain_health with no arguments (or include_tx_pool=true if you specifically want mempool counts).',
+              '2) Read the returned narrative aloud; it already summarizes ping latency, topoheight, stableheight, version, network, and mempool state.',
+              '3) Inspect signals (e.g. "healthy", "stale-tip", "lagging") and surface any that are not "healthy".',
+              '4) Quote the related_docs citations so the user knows where to read further.',
               reference_topoheight
-                ? `4) Compare topoheight against reference_topoheight=${reference_topoheight}.`
-                : '4) If no reference topoheight is provided, state that external comparison is still needed for final sync confidence.',
+                ? `5) Compare the returned topoheight against reference_topoheight=${reference_topoheight} and report the delta.`
+                : '5) If no reference topoheight was provided, state that external comparison is still needed for final sync confidence.',
+              '',
+              'Fallback: only chain primitives manually (dero_daemon_ping → dero_get_info → dero_get_height → dero_get_tx_pool) if diagnose_chain_health is unavailable or returns _meta.error.',
             ].join('\n'),
           },
         },
@@ -819,24 +918,27 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   server.registerPrompt(
     'inspect_smart_contract',
     {
-      description: 'Inspect contract code/variables and explain likely state model.',
+      description: 'Inspect a DERO contract via the explain_smart_contract composite (function surface + classification + curated DVM docs).',
       argsSchema: {
         scid: hex64Schema,
       },
     },
     async ({ scid }) => ({
-      description: 'Prompt for smart contract inspection.',
+      description: 'Prompt for smart contract inspection (composite-first).',
       messages: [
         {
           role: 'user',
           content: {
             type: 'text',
             text: [
-              `Inspect DERO smart contract ${scid}.`,
-              '1) Call dero_get_sc with variables=true and code=true.',
-              '2) Summarize key stringkeys and balances.',
-              '3) Explain likely data model and any assumptions.',
-              '4) Include topoheight context from response.',
+              `Investigate DERO smart contract ${scid} using the MCP composite tools.`,
+              '',
+              `1) Call explain_smart_contract with scid="${scid}". This single call returns the parsed function surface, a contract kind classification (token | registry | minimal | generic), a plain-language narrative, and 1-4 DVM docs citations ranked for the contract pattern.`,
+              '2) Quote the narrative as-is — it already explains the likely data model, state keys, and where to read next.',
+              '3) If the user wants raw state (variable values, balances), THEN call dero_get_sc with variables=true and code=true as a follow-up; explain why you needed the second call.',
+              '4) If you want documentation for a DVM concept the contract uses, call dero_docs_get_page with the slug from one of the related_docs entries.',
+              '',
+              'Fallback: call dero_get_sc manually only if explain_smart_contract is unavailable or returns _meta.error.',
             ].join('\n'),
           },
         },
@@ -847,23 +949,95 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   server.registerPrompt(
     'trace_transaction',
     {
-      description: 'Trace one transaction and summarize confirmation + SC activity.',
+      description: 'Trace one transaction via the trace_transaction_with_context composite (confirmation + kind classification + SC install surface).',
       argsSchema: {
         tx_hash: hex64Schema,
       },
     },
     async ({ tx_hash }) => ({
-      description: 'Prompt for transaction tracing.',
+      description: 'Prompt for transaction tracing (composite-first).',
       messages: [
         {
           role: 'user',
           content: {
             type: 'text',
             text: [
-              `Trace DERO transaction ${tx_hash}.`,
-              '1) Call dero_get_transaction with txs_hashes=[tx_hash] and decode_as_json=1.',
-              '2) Summarize confirmation status, block height, transfers, and SC invokes.',
-              '3) If not confirmed, mention mempool status uncertainty and next check timing.',
+              `Trace DERO transaction ${tx_hash} using the MCP composite tools.`,
+              '',
+              `1) Call trace_transaction_with_context with tx_hash="${tx_hash}". The response gives you confirmation status (confirmed | mempool | unknown), block height + valid_block, kind classification (sc_install | transfer_or_invocation | coinbase | unknown), ring stats, and — if the tx is a contract install — the parsed function surface inline (no second call needed).`,
+              '2) Read the returned narrative aloud. Quote the related_docs citations.',
+              '3) If confirmation is "mempool", explicitly note that the result is provisional and tell the user when to retry.',
+              '4) If _meta.error.code is TX_NOT_FOUND, do NOT retry blindly — verify the hash, confirm the network (mainnet vs testnet), and only retry if the tx was just broadcast.',
+              '5) Note: SC invocation arg decoding is NOT performed by the composite (would require the binary tx codec). If the tx is a non-install SC call and the user needs the entrypoint + args, surface that limitation and suggest a wallet-side decoder.',
+              '',
+              'Fallback: call dero_get_transaction manually only if trace_transaction_with_context is unavailable or returns an unhandled _meta.error.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  )
+
+  server.registerPrompt(
+    'find_dero_docs_for_intent',
+    {
+      description: 'Find the right DERO documentation page(s) for a natural-language intent via the recommend_docs_path composite.',
+      argsSchema: {
+        intent: z.string().min(3, 'Provide a short intent like "deploy a TELA app" or "estimate gas"'),
+        product_hint: z.enum(DERO_DOC_PRODUCTS).optional(),
+      },
+    },
+    async ({ intent, product_hint }) => ({
+      description: 'Prompt for routing an agent intent to the right DERO docs.',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Find the best DERO documentation page(s) for the intent: "${intent}".`,
+              '',
+              `1) Call recommend_docs_path with intent="${intent}"${product_hint ? `, product_hint="${product_hint}" (this biases the score 1.5x toward that product; it does NOT filter the other three out)` : ' (no product_hint — all four DERO products will be searched in parallel)'}.`,
+              '2) Read the top 2-3 recommendations to the user with their rationale strings; quote the canonical URLs.',
+              '3) If the user wants the full content of any page, call dero_docs_get_page with the slug + product from the recommendation.',
+              '4) If _meta.error.code is NO_DOCS_MATCH, rephrase the intent (drop verbs, use product nouns like "TELA app" or "DVM contract") and call again. Do NOT just give up.',
+              '',
+              'Prefer this composite over chaining dero_docs_search yourself across four products.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  )
+
+  server.registerPrompt(
+    'estimate_deploy_for_contract',
+    {
+      description: 'Run gas pre-flight for a DVM-BASIC contract source via the estimate_deploy_cost composite (numeric estimate + plain-text breakdown + parsed surface).',
+      argsSchema: {
+        sc_source: z.string().min(20, 'Provide DVM-BASIC contract source (at minimum: a Function/End Function block)'),
+        include_breakdown: z.boolean().optional(),
+      },
+    },
+    async ({ sc_source, include_breakdown }) => ({
+      description: 'Prompt for DVM deploy pre-flight (composite-first).',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              'Run a deploy pre-flight (gas estimate) for the DVM-BASIC source the user supplied. This is read-only; nothing is submitted to chain.',
+              '',
+              `1) Call estimate_deploy_cost with the contract source as sc${include_breakdown === false ? ' and include_breakdown=false (caller does NOT want the plain-text gas notes)' : ' (include_breakdown defaults to true)'}.`,
+              '2) Quote estimate.gascompute, estimate.gasstorage, estimate.total, and the daemon\'s status string.',
+              '3) If include_breakdown is true, read the breakdown.compute_note and breakdown.storage_note as plain-language explanations.',
+              '4) Quote the parsed function surface (functions[].name) so the user can sanity-check the contract.',
+              '5) If _meta.error.code is INVALID_INPUT, read the hint and the raw -32098 compile message from _meta.error.raw verbatim — that tells the user what to fix in the source.',
+              '',
+              `Source (${sc_source.length} chars) starts with: ${sc_source.slice(0, 120)}${sc_source.length > 120 ? '...' : ''}`,
+              '',
+              'Fallback: call dero_get_gas_estimate manually only if estimate_deploy_cost is unavailable.',
             ].join('\n'),
           },
         },

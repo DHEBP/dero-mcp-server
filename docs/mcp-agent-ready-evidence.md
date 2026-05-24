@@ -19,8 +19,8 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 | Primitive | Count | Notes |
 |---|---:|---|
 | Tools | 25 | 20 daemon-read + bundled-docs primitives plus **all 5 composites** (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`, `trace_transaction_with_context`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
-| Resources | 3 | Server info, safety boundary, example flows |
-| Prompts | 3 | Network health, SC inspection, tx tracing |
+| Resources | 4 | Server info, safety boundary, **composite-aware example flows**, and the new `dero://mcp/composites` catalog that tells agents which composite replaces which primitive chain. |
+| Prompts | 5 | Three **refreshed** prompts (`network_health_check`, `inspect_smart_contract`, `trace_transaction`) now call composites first and document primitive fallbacks. Two **new** prompts (`find_dero_docs_for_intent`, `estimate_deploy_for_contract`) drive `recommend_docs_path` and `estimate_deploy_cost` respectively. |
 | Curated docs citations | 16 | Across 7 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`, `explain_smart_contract`, `estimate_deploy_cost`, `trace_transaction_with_context`). Validated against the bundled index in CI. `recommend_docs_path` emits dynamic citations from its top search hits (no static curation needed). |
 | Composite tools | 5 of 5 ✅ | All Phase C composites shipped 2026-05-23 with green flow tests including failure-mode coverage for `NO_DOCS_MATCH`, `INVALID_INPUT`, and `TX_NOT_FOUND`. Phase C is complete. |
 
@@ -38,8 +38,8 @@ Result (latest run, 2026-05-23 after composite #5 — Phase C complete):
 
 - `tools/list` parity: **25**
 - Read-only annotations on every tool: **25/25**
-- `resources/list` parity: **3**
-- `prompts/list` parity: **3**
+- `resources/list` parity: **4**
+- `prompts/list` parity: **5**
 - `prompts/get` check: **pass**
 - `dero_get_info` `related_docs` citation: **2 citations present, both resolve**
 - Structured error probe (`_meta.error`): **pass**

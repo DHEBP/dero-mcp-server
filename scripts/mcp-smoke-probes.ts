@@ -51,12 +51,15 @@ const EXPECTED_RESOURCES = [
   'dero://mcp/server-info',
   'dero://mcp/safety-boundary',
   'dero://mcp/example-flows',
+  'dero://mcp/composites',
 ] as const
 
 const EXPECTED_PROMPTS = [
   'network_health_check',
   'inspect_smart_contract',
   'trace_transaction',
+  'find_dero_docs_for_intent',
+  'estimate_deploy_for_contract',
 ] as const
 
 function parseArgs(argv: string[]) {
