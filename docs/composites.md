@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-05-23
 **Repo:** `DHEBP/dero-mcp-server`
-**Status:** v0.1.x has **1 of 5 composites shipped** (`diagnose_chain_health` landed 2026-05-23 with `flow-diagnose-chain-health` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
+**Status:** v0.1.x has **2 of 5 composites shipped** (`diagnose_chain_health` + `explain_smart_contract`, both landed 2026-05-23 with `flow-diagnose-chain-health` and `flow-explain-name-registry` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
 **Workflow:** This repo commits directly to main. Each composite is a single self-contained commit (design entry → implementation → flow test → smoke probe wiring → citation map). There is no PR review step; this doc IS the gate.
 **Source pattern:** Mirrors Food Near Me's `COMPOSITES.md` discipline ([remix/14](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) — "Composite design gate"; FNM proof at `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`).
 
@@ -45,7 +45,7 @@ These live in `src/composites/_shared.ts`. Anything reused by more than one comp
 | `stepValue(chain, name)` | ✅ shipped 2026-05-23 (composite #1) | Extract a single successful step's value from a `ChainResult`. Returns `null` for missing/failed steps. |
 | `stepLatencies(chain)` | ✅ shipped 2026-05-23 (composite #1) | Per-step latency map for embedding under a composite's `_diagnostics` field. |
 | `attachCitations(payload, toolName)` | ✅ shipped 2026-05-23 (composite #1) | Wraps `relatedDocsFor(toolName)` so every composite emits its citations the same way. |
-| `extractScSurface(getScResult)` | ⬜ ships with composite #2 (`explain_smart_contract`) | Pure function — derives `{ functions: [name, args?][], stringkeys: string[], uint64keys: string[] }` from a `DERO.GetSC` response. Deferred to the commit that first uses it to avoid shipping dead code. |
+| `extractScSurface(getScResult)` | ✅ shipped 2026-05-23 (composite #2) | Pure function — derives `{ functions: { name, args, returns }[], stringkeys: string[], uint64keys: string[], balances, raw_code_length, has_code }` from a `DERO.GetSC` response. Sorts string/uint64 keys alphabetically for deterministic output. Tolerant of missing `code`, missing `uint64keys`, and malformed source (returns empty `functions[]` rather than throwing). Ready for reuse by composites #4 and #5. |
 | `summarizeChainHealth(info, height, txPool)` | ✅ shipped 2026-05-23 (composite #1) | Lives **inside** `src/composites/diagnose-chain-health.ts`, not `_shared.ts`, because the shape is tightly coupled to composite #1's response and is not reused. Documented here so future contributors know where to find it. |
 
 ---
@@ -99,7 +99,9 @@ z.object({
 
 ---
 
-### 2. `explain_smart_contract` — wedge-defining composite
+### 2. `explain_smart_contract` — wedge-defining composite ✅ shipped 2026-05-23
+
+**Status:** Implemented in `src/composites/explain-smart-contract.ts`. Flow test `flow-explain-name-registry` in `scripts/flow-composites.ts` passes against the public daemon (name registry → kind=`registry`, 6 parsed functions, 22,618 live stringkeys, 450-char narrative, 4 citations, heuristic correctly elevates `dvm/smart-contract-fundamentals` as primary). The classifier `classifyContractAndPickDoc` is exported from the composite module so future composites / tests can reuse the kind label without re-parsing.
 
 **Wedge:** Today an agent calls `dero_get_sc`, gets a raw code blob with stringkeys/uint64keys/balances, and must know DVM-BASIC syntax to interpret it. This composite extracts the contract's function surface and stitches it to the right bundled DVM docs page. No generic chain MCP can do this.
 
@@ -289,7 +291,7 @@ z.object({
 | Order | Composite | Status | Why this order |
 |------:|-----------|--------|---------------|
 | 1 | `diagnose_chain_health` | ✅ shipped 2026-05-23 | Proved composite plumbing with zero new schemas. |
-| 2 | `explain_smart_contract` | ⬜ pending | Establishes SC-surface extraction reused by 4 & 5. |
+| 2 | `explain_smart_contract` | ✅ shipped 2026-05-23 | Established `extractScSurface` (now in `_shared.ts`) for reuse by composites 4 & 5. |
 | 3 | `recommend_docs_path` | ⬜ pending | Docs-only composite — independent of chain semantics. |
 | 4 | `estimate_deploy_cost` | ⬜ pending | Reuses SC surface; numeric care required. |
 | 5 | `trace_transaction_with_context` | ⬜ pending | Highest fan-out + failure-mode count; ship last. |

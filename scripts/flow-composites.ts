@@ -23,6 +23,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
 const MIN_NARRATIVE_LENGTH = 80
+const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
 
 function parseArgs(argv: string[]): string {
   let daemonUrl = process.env.DERO_DAEMON_URL ?? DEFAULT_DAEMON_URL
@@ -58,6 +59,22 @@ type Citation = {
   title?: string
   canonical_url?: string
   page_id?: string
+}
+
+type ExplainSmartContractPayload = {
+  scid?: string
+  topoheight?: number | null
+  kind?: 'token' | 'registry' | 'minimal' | 'generic'
+  surface?: {
+    functions?: Array<{ name: string; args?: string[]; returns?: string }>
+    stringkeys?: string[]
+    uint64keys?: string[]
+    balances?: Record<string, number | string>
+  }
+  narrative?: string
+  raw_code_length?: number
+  has_code?: boolean
+  related_docs?: Citation[]
 }
 
 type DiagnoseChainHealthPayload = {
@@ -168,6 +185,79 @@ async function flowDiagnoseChainHealth(client: Client): Promise<void> {
   console.log('OK  flow-diagnose-chain-health (include_tx_pool=false skips mempool)')
 }
 
+/**
+ * flow-explain-name-registry — `docs/composites.md` § 2.
+ *
+ * Calls `explain_smart_contract` against the on-chain name registry
+ * SCID (`0000…0001`), which is well-known and stable on every DERO
+ * network. Asserts the surface extractor parsed at least one Function
+ * declaration, the narrative is non-trivial, citations are well-formed,
+ * and the heuristic-elevated docs page comes first (registry pattern →
+ * `dvm/smart-contract-fundamentals`).
+ */
+async function flowExplainNameRegistry(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'explain_smart_contract',
+    arguments: { scid: NAME_REGISTRY_SCID },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as ExplainSmartContractPayload
+
+  if (payload.scid !== NAME_REGISTRY_SCID) {
+    throw new Error(
+      `explain_smart_contract: scid round-trip failed (got ${payload.scid ?? '<missing>'})`,
+    )
+  }
+  if (!payload.has_code || typeof payload.raw_code_length !== 'number' || payload.raw_code_length < 100) {
+    throw new Error('explain_smart_contract: expected name registry to return non-empty code')
+  }
+  if (!payload.surface || !Array.isArray(payload.surface.functions)) {
+    throw new Error('explain_smart_contract: surface.functions missing')
+  }
+  if (payload.surface.functions.length < 1) {
+    throw new Error('explain_smart_contract: expected ≥ 1 parsed Function on name registry')
+  }
+  for (const fn of payload.surface.functions) {
+    if (!fn.name || typeof fn.name !== 'string') {
+      throw new Error('explain_smart_contract: function entry missing name')
+    }
+    if (!Array.isArray(fn.args)) {
+      throw new Error(`explain_smart_contract: function "${fn.name}" missing args array`)
+    }
+  }
+  if (typeof payload.narrative !== 'string' || payload.narrative.length < MIN_NARRATIVE_LENGTH) {
+    throw new Error(
+      `explain_smart_contract: narrative too short (${payload.narrative?.length ?? 0} < ${MIN_NARRATIVE_LENGTH})`,
+    )
+  }
+  if (payload.kind !== 'token' && payload.kind !== 'registry' && payload.kind !== 'minimal' && payload.kind !== 'generic') {
+    throw new Error(`explain_smart_contract: unexpected kind "${payload.kind}"`)
+  }
+  if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
+    throw new Error('explain_smart_contract: related_docs missing or empty')
+  }
+  for (const cite of payload.related_docs) {
+    assertCitation(cite, 'explain_smart_contract.related_docs')
+  }
+  // Name registry has Register/Lookup/EXISTS, classifier should pick "registry"
+  // and elevate dvm/smart-contract-fundamentals as the primary docs page.
+  if (payload.kind !== 'registry') {
+    throw new Error(
+      `explain_smart_contract: name registry should classify as "registry", got "${payload.kind}"`,
+    )
+  }
+  if (payload.related_docs[0].slug !== 'dvm/smart-contract-fundamentals') {
+    throw new Error(
+      `explain_smart_contract: registry heuristic should elevate dvm/smart-contract-fundamentals, got "${payload.related_docs[0].slug}"`,
+    )
+  }
+
+  console.log(
+    `OK  flow-explain-name-registry (kind=${payload.kind}, functions=${payload.surface.functions.length}, stringkeys=${payload.surface.stringkeys?.length ?? 0}, narrative=${payload.narrative.length}ch, citations=${payload.related_docs.length}, primary=${payload.related_docs[0].slug})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -191,6 +281,7 @@ async function main(): Promise<void> {
     await client.connect(transport)
 
     await flowDiagnoseChainHealth(client)
+    await flowExplainNameRegistry(client)
 
     console.log('')
     console.log('All composite flow tests passed.')

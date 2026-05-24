@@ -215,6 +215,16 @@ Input Requirements:
 
 Output: \`{ docs_source, total, products, pages: [{ product, slug, title, canonical_url, last_updated }] }\`.`,
 
+  explain_smart_contract: `Composite: fetch a DERO smart contract (code + variables + balances) and return its function surface, a classification of the contract pattern (token | registry | minimal | generic), a plain-language narrative, and curated DVM docs citations re-ordered so the most relevant page is first.
+
+When to call: when the user wants to UNDERSTAND a smart contract — its functions, state shape, or which DVM concept to read about. PREFER this over chaining dero_get_sc with a docs lookup yourself: this composite already parses the DVM-BASIC source for function declarations, sorts stringkeys/uint64keys deterministically, and picks the right docs page from a heuristic so the agent does not have to learn DVM-BASIC syntax to summarize a contract.
+
+Input Requirements:
+- \`scid\` is REQUIRED. Must be 64 hex chars (the smart contract id). Use \`0000…0001\` for the on-chain name registry as a known-good example.
+- \`topoheight\` is OPTIONAL. Provide to inspect the contract at a specific topo height; omit for latest tip.
+
+Output: \`{ scid, topoheight, kind, surface: { functions[], stringkeys[], uint64keys[], balances }, narrative, raw_code_length, has_code, related_docs }\`. \`kind\` is one of \`token | registry | minimal | generic\`. \`surface.functions\` items are \`{ name, args, returns }\`. \`has_code\` is false when the SCID is unknown or has no on-chain code; \`functions\` is then \`[]\` and the narrative explains the gap. \`raw_code_length\` is always present so the agent knows when to fall back to \`dero_get_sc\` for the full source.`,
+
   diagnose_chain_health: `Composite: run a four-step chain (DERO.Ping → DERO.GetInfo → DERO.GetHeight → DERO.GetTxPool) and return a single narrative health report with chain metadata, mempool snapshot, machine-readable signals, and curated docs citations.
 
 When to call: as the first step in any chain-state investigation when the user asks "is the node healthy", "is it synced", or "what is the current state of the chain". PREFER this over chaining the four primitives yourself — the composite handles partial-failure modes and lag-depth classification consistently, and the response already cites the right docs page.

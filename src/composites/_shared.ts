@@ -130,3 +130,105 @@ export function attachCitations<T extends Record<string, unknown>>(
  * `McpServer` coupling).
  */
 export type DeroDaemonRpc = <T = unknown>(method: string, params?: unknown) => Promise<T>
+
+// ---------------- Smart contract surface extraction ----------------
+//
+// Used by composite #2 (`explain_smart_contract`) and reused by
+// composites #4 (`estimate_deploy_cost`) and #5
+// (`trace_transaction_with_context`) — see `docs/composites.md` § shared
+// utilities. Intentionally pure and dependency-free so it can be unit
+// tested without a daemon.
+
+/**
+ * Loose representation of a `DERO.GetSC` response. Field names match the
+ * daemon's actual JSON keys observed on the public node. `uint64keys` is
+ * frequently absent (the daemon omits empty maps), so it is optional.
+ */
+export type DeroGetScResult = {
+  code?: string
+  status?: string
+  balance?: number
+  balances?: Record<string, number>
+  stringkeys?: Record<string, unknown>
+  uint64keys?: Record<string, unknown>
+  [k: string]: unknown
+}
+
+export type DvmFunctionSignature = {
+  name: string
+  args: string[]
+  returns: string
+}
+
+export type DeroScSurface = {
+  functions: DvmFunctionSignature[]
+  stringkeys: string[]
+  uint64keys: string[]
+  balances: Record<string, number | string>
+  raw_code_length: number
+  has_code: boolean
+}
+
+// DVM-BASIC function declaration:
+//   Function Name(arg Type, ...) Uint64|String
+//
+// Anchored with `/m` so each line of source is examined independently.
+// Tolerant of leading whitespace and varied spacing inside the parens.
+const DVM_FUNCTION_REGEX =
+  /^[ \t]*Function[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(([^)]*)\)[ \t]*(Uint64|String)\b/gm
+
+function parseDvmFunctions(code: string): DvmFunctionSignature[] {
+  const out: DvmFunctionSignature[] = []
+  const seen = new Set<string>()
+  for (const match of code.matchAll(DVM_FUNCTION_REGEX)) {
+    const name = match[1]
+    if (seen.has(name)) continue
+    seen.add(name)
+    const argsRaw = (match[2] ?? '').trim()
+    const returns = match[3] ?? ''
+    const args =
+      argsRaw.length === 0
+        ? []
+        : argsRaw
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+    out.push({ name, args, returns })
+  }
+  return out
+}
+
+/**
+ * Convert a raw DERO.GetSC payload into a stable, agent-friendly surface.
+ *
+ * Behavior:
+ *  - Returns `functions: []` when `code` is missing or the regex finds
+ *    no Function declarations. Never throws on malformed code.
+ *  - Sorts `stringkeys` / `uint64keys` alphabetically for deterministic
+ *    output across invocations.
+ *  - `balances` is passed through unchanged so callers can render asset
+ *    balances; native DERO balance lives under `balance` on the raw
+ *    payload and is left for callers to decide whether to surface.
+ */
+export function extractScSurface(raw: DeroGetScResult | null | undefined): DeroScSurface {
+  const code = typeof raw?.code === 'string' ? raw.code : ''
+  const functions = code.length > 0 ? parseDvmFunctions(code) : []
+  const stringkeys = raw?.stringkeys ? Object.keys(raw.stringkeys).sort() : []
+  const uint64keys = raw?.uint64keys ? Object.keys(raw.uint64keys).sort() : []
+  const balances: Record<string, number | string> = {}
+  if (raw?.balances && typeof raw.balances === 'object') {
+    for (const [scid, amount] of Object.entries(raw.balances)) {
+      if (typeof amount === 'number' || typeof amount === 'string') {
+        balances[scid] = amount
+      }
+    }
+  }
+  return {
+    functions,
+    stringkeys,
+    uint64keys,
+    balances,
+    raw_code_length: code.length,
+    has_code: code.length > 0,
+  }
+}

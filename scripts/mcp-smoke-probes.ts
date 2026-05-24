@@ -41,6 +41,7 @@ const EXPECTED_TOOLS = [
   'dero_docs_list',
   // ---- Composites (Phase C) ----
   'diagnose_chain_health',
+  'explain_smart_contract',
 ] as const
 
 const EXPECTED_RESOURCES = [

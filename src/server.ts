@@ -13,6 +13,10 @@ import {
   diagnoseChainHealth,
   diagnoseChainHealthInputSchema,
 } from './composites/diagnose-chain-health.js'
+import {
+  explainSmartContract,
+  explainSmartContractInputSchema,
+} from './composites/explain-smart-contract.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -606,6 +610,17 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     }),
     withStructuredErrors('diagnose_chain_health', async (args) =>
       diagnoseChainHealth(rpc, args ?? {}),
+    ),
+  )
+
+  server.registerTool(
+    'explain_smart_contract',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.explain_smart_contract,
+      inputSchema: explainSmartContractInputSchema,
+    }),
+    withStructuredErrors('explain_smart_contract', async (args) =>
+      explainSmartContract(rpc, args),
     ),
   )
 
