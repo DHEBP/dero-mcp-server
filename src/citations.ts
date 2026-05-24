@@ -124,6 +124,18 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'DERO Daemon RPC API: Complete Reference Guide | DERO Blockchain',
     },
   ],
+  estimate_deploy_cost: [
+    {
+      product: 'derod',
+      slug: 'dvm/create-deploy-use-smart-contract',
+      title: 'Create, Deploy & Use a Smart Contract on DERO | Step-by-Step Tutorial',
+    },
+    {
+      product: 'derod',
+      slug: 'dvm/dvm-basic',
+      title: "DVM-BASIC: DERO's Smart Contract Language Guide | DERO Blockchain",
+    },
+  ],
   // Composite #2 (`explain_smart_contract`) curates all four DVM docs so its
   // heuristic can elevate whichever page best matches the detected surface
   // (token / registry / minimal / generic). The composite re-orders this

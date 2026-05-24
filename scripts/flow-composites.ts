@@ -61,6 +61,25 @@ type Citation = {
   page_id?: string
 }
 
+type EstimateDeployCostPayload = {
+  estimate?: { gascompute?: number | null; gasstorage?: number | null; status?: string | null }
+  breakdown?: {
+    compute_note?: string
+    storage_note?: string
+    total_units?: number
+  } | null
+  signer_used?: string | null
+  include_breakdown?: boolean
+  sc_surface?: {
+    functions?: Array<{ name: string; args?: string[]; returns?: string }>
+    stringkeys?: string[]
+    uint64keys?: string[]
+    raw_code_length?: number
+    function_count?: number
+  }
+  related_docs?: Citation[]
+}
+
 type RecommendDocsPathPayload = {
   intent?: string
   product_hint?: 'derod' | 'tela' | 'hologram' | 'deropay' | null
@@ -386,6 +405,115 @@ async function flowRecommendDocsNoMatch(client: Client): Promise<void> {
   )
 }
 
+/**
+ * flow-estimate-deploy-minimal — `docs/composites.md` § 4.
+ *
+ * Asserts:
+ *  - `estimate.status` is the daemon's status string (typically "OK").
+ *  - `estimate.gascompute` and `estimate.gasstorage` are finite numbers.
+ *  - `breakdown.compute_note` is a non-empty string (default behavior,
+ *    include_breakdown not passed).
+ *  - `breakdown.total_units === gascompute + gasstorage`.
+ *  - `sc_surface.function_count ≥ 1` (the minimal source has Initialize).
+ *  - At least one citation is present and well-formed.
+ *
+ * Also runs once with `include_breakdown: false` to confirm the
+ * composite respects the opt-out and returns `breakdown: null`.
+ */
+async function flowEstimateDeployMinimal(client: Client): Promise<void> {
+  const MINIMAL_SC = 'Function Initialize() Uint64\n10 RETURN 0\nEnd Function'
+
+  const result = await client.callTool({
+    name: 'estimate_deploy_cost',
+    arguments: { sc: MINIMAL_SC },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as EstimateDeployCostPayload
+
+  if (!payload.estimate || typeof payload.estimate.status !== 'string' || payload.estimate.status.length === 0) {
+    throw new Error('estimate_deploy_cost: estimate.status missing or empty')
+  }
+  if (typeof payload.estimate.gascompute !== 'number' || !Number.isFinite(payload.estimate.gascompute)) {
+    throw new Error('estimate_deploy_cost: estimate.gascompute should be a finite number')
+  }
+  if (typeof payload.estimate.gasstorage !== 'number' || !Number.isFinite(payload.estimate.gasstorage)) {
+    throw new Error('estimate_deploy_cost: estimate.gasstorage should be a finite number')
+  }
+  if (!payload.breakdown || typeof payload.breakdown.compute_note !== 'string' || payload.breakdown.compute_note.length === 0) {
+    throw new Error('estimate_deploy_cost: breakdown.compute_note missing (default include_breakdown should be true)')
+  }
+  if (typeof payload.breakdown.storage_note !== 'string' || payload.breakdown.storage_note.length === 0) {
+    throw new Error('estimate_deploy_cost: breakdown.storage_note missing')
+  }
+  if (
+    typeof payload.breakdown.total_units !== 'number' ||
+    payload.breakdown.total_units !== payload.estimate.gascompute + payload.estimate.gasstorage
+  ) {
+    throw new Error('estimate_deploy_cost: breakdown.total_units should equal gascompute + gasstorage')
+  }
+  if (!payload.sc_surface || typeof payload.sc_surface.function_count !== 'number' || payload.sc_surface.function_count < 1) {
+    throw new Error('estimate_deploy_cost: sc_surface.function_count should be ≥ 1 for a minimal Initialize-only contract')
+  }
+  if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
+    throw new Error('estimate_deploy_cost: related_docs missing or empty')
+  }
+  for (const cite of payload.related_docs) {
+    assertCitation(cite, 'estimate_deploy_cost.related_docs')
+  }
+
+  console.log(
+    `OK  flow-estimate-deploy-minimal (status=${payload.estimate.status}, gascompute=${payload.estimate.gascompute}, gasstorage=${payload.estimate.gasstorage}, total=${payload.breakdown.total_units}, functions=${payload.sc_surface.function_count}, citations=${payload.related_docs.length})`,
+  )
+
+  const skipBreakdownResult = await client.callTool({
+    name: 'estimate_deploy_cost',
+    arguments: { sc: MINIMAL_SC, include_breakdown: false },
+  })
+  const skipPayload = parseFirstTextJson(
+    skipBreakdownResult as { content: Array<{ type: string; text?: string }> },
+  ) as EstimateDeployCostPayload
+  if (skipPayload.breakdown !== null) {
+    throw new Error('estimate_deploy_cost: include_breakdown=false should null the breakdown field')
+  }
+  if (skipPayload.include_breakdown !== false) {
+    throw new Error('estimate_deploy_cost: include_breakdown=false should round-trip in the response')
+  }
+  console.log('OK  flow-estimate-deploy-minimal (include_breakdown=false nulls breakdown)')
+}
+
+/**
+ * Covers the INVALID_INPUT failure mode in `docs/composites.md` § 4.
+ * Sends a deliberately-malformed DVM source and asserts the composite
+ * surfaces a structured `_meta.error` with code `INVALID_INPUT` and
+ * the daemon's exact compile message preserved in `raw`.
+ */
+async function flowEstimateDeployInvalid(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'estimate_deploy_cost',
+    arguments: { sc: 'NOT A REAL CONTRACT' },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as StructuredErrorPayload
+  if (payload?.ok !== false || payload?._meta?.error?.code !== 'INVALID_INPUT') {
+    throw new Error(
+      `estimate_deploy_cost: expected _meta.error.code=INVALID_INPUT for malformed sc, got ${JSON.stringify(payload).slice(0, 200)}`,
+    )
+  }
+  if (typeof payload._meta.error.raw !== 'string' || !payload._meta.error.raw.includes('RPC error -32098')) {
+    throw new Error(
+      `estimate_deploy_cost: expected _meta.error.raw to include 'RPC error -32098', got "${(payload._meta.error.raw ?? '').slice(0, 200)}"`,
+    )
+  }
+  if (typeof payload._meta.error.hint !== 'string' || payload._meta.error.hint.length < 40) {
+    throw new Error('estimate_deploy_cost: INVALID_INPUT hint missing or too short')
+  }
+  console.log(
+    `OK  flow-estimate-deploy-invalid (code=${payload._meta.error.code}, raw_includes_-32098=true, hint_len=${payload._meta.error.hint.length})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -412,6 +540,8 @@ async function main(): Promise<void> {
     await flowExplainNameRegistry(client)
     await flowRecommendDocsDeployTela(client)
     await flowRecommendDocsNoMatch(client)
+    await flowEstimateDeployMinimal(client)
+    await flowEstimateDeployInvalid(client)
 
     console.log('')
     console.log('All composite flow tests passed.')

@@ -215,6 +215,17 @@ Input Requirements:
 
 Output: \`{ docs_source, total, products, pages: [{ product, slug, title, canonical_url, last_updated }] }\`.`,
 
+  estimate_deploy_cost: `Composite: send a DVM-BASIC contract source to the daemon's gas estimator, then return the raw estimate alongside a plain-text breakdown (what each gas number means), the parsed contract surface, and curated DVM deploy docs as citations.
+
+When to call: BEFORE asking a wallet to broadcast a deploy transaction, OR when explaining the cost of a contract to a user. PREFER this over chaining dero_get_gas_estimate yourself: this composite already explains gascompute vs gasstorage in plain language, parses the SC source to show what functions the user is about to deploy (reusing extractScSurface from explain_smart_contract), and protects against fabricating a breakdown when the daemon reports 0/0 with a non-OK status.
+
+Input Requirements:
+- \`sc\` is REQUIRED. The full DVM-BASIC contract source — must contain at least one \`Function ... End Function\` block. A function body alone will fail with INVALID_INPUT.
+- \`signer\` is OPTIONAL. A dero1.../deto1... address that will sign the eventual deploy tx. The daemon uses it for fee context; omitting it still returns a meaningful estimate.
+- \`include_breakdown\` is OPTIONAL (default true). Set false when you only need the raw numbers (e.g. piping into a fee table).
+
+Output: \`{ estimate: { gascompute, gasstorage, status }, breakdown: { compute_note, storage_note, total_units } | null, signer_used, include_breakdown, sc_surface: { functions, stringkeys, uint64keys, raw_code_length, function_count }, related_docs }\`. \`breakdown\` is null when \`include_breakdown=false\` OR when the daemon returned 0/0 with a non-OK status (never fabricated). On DVM compile failure the composite returns a structured \`_meta.error\` with code \`INVALID_INPUT\` and the daemon's exact compile message in \`_meta.error.raw\`.`,
+
   recommend_docs_path: `Composite: take a natural-language intent, fan out parallel scoped searches across the bundled docs for all four DERO products (derod, tela, hologram, deropay), boost any product_hint matches by 1.5×, and return a ranked recommendation list with per-result rationale plus ready-to-cite related_docs.
 
 When to call: at the START of any "where do I read about X?" or "which docs cover Y?" investigation, BEFORE calling dero_docs_search directly. PREFER this over guessing the right product: this composite already runs all four products in parallel, dedupes overlap, surfaces the top heading per result as rationale, and gives you the top-2 citations pre-built. Pass product_hint when the user has already said e.g. "TELA" or "DeroPay" so that product's matches float to the top.

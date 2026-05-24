@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-05-23
 **Repo:** `DHEBP/dero-mcp-server`
-**Status:** v0.1.x has **3 of 5 composites shipped** (`diagnose_chain_health`, `explain_smart_contract`, and `recommend_docs_path` — all landed 2026-05-23 with `flow-diagnose-chain-health`, `flow-explain-name-registry`, `flow-recommend-docs-deploy-tela`, and `flow-recommend-docs-no-match` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
+**Status:** v0.1.x has **4 of 5 composites shipped** (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, and `estimate_deploy_cost` — all landed 2026-05-23 with `flow-diagnose-chain-health`, `flow-explain-name-registry`, `flow-recommend-docs-deploy-tela`, `flow-recommend-docs-no-match`, `flow-estimate-deploy-minimal`, and `flow-estimate-deploy-invalid` green against the public daemon). This document remains the design gate every remaining composite MUST satisfy before being committed to main.
 **Workflow:** This repo commits directly to main. Each composite is a single self-contained commit (design entry → implementation → flow test → smoke probe wiring → citation map). There is no PR review step; this doc IS the gate.
 **Source pattern:** Mirrors Food Near Me's `COMPOSITES.md` discipline ([remix/14](../../../docs/AI%20Agent%20Ready/remix/14-competitive-mcp-shape-parity-and-composites.md) — "Composite design gate"; FNM proof at `FoodNearMe/apps/web/lib/mcp/tools/COMPOSITES.md`).
 
@@ -204,7 +204,11 @@ z.object({
 
 ---
 
-### 4. `estimate_deploy_cost` — numeric pre-flight, ship carefully
+### 4. `estimate_deploy_cost` — numeric pre-flight, ship carefully ✅ shipped 2026-05-23
+
+**Status:** Implemented in `src/composites/estimate-deploy-cost.ts`. Flow tests `flow-estimate-deploy-minimal` (minimal `Initialize() Uint64` source → status=OK, gascompute=5000, gasstorage=1, 1 function detected, 2 citations) and `flow-estimate-deploy-invalid` (malformed source → `_meta.error.code = INVALID_INPUT`, daemon's `RPC error -32098` preserved in `raw`, 306-char hint) both pass against the public daemon. Reuses `extractScSurface` from composite #2 to enrich the response with the parsed function surface, exactly as the shared-utilities table planned. Added an `RPC error -32098` classifier branch to `src/server.ts` so DVM compile failures surface as structured `INVALID_INPUT` (consistent with the existing `-32601` / `-32602` pattern).
+
+**Design clarification (recorded in the composite module header):** the daemon's gas numbers are in atomic "gas units", not DERO. Converting to DERO requires the fee-per-gas table from a separate query and was deliberately not added to this composite to keep its output deterministic and avoid drift if the daemon changes its fee schedule. The breakdown returns the raw units plus an explanatory note; the agent or wallet does the unit conversion when needed. When the daemon returns 0/0 with a non-OK status, the composite returns `breakdown: null` rather than fabricating one — the design contract is explicit on this.
 
 **Wedge:** `dero_get_gas_estimate` returns raw `gascompute` + `gasstorage`. Agents have to know how to interpret those and how to surface them to a user. This composite returns the estimate plus a plain-text breakdown referencing the right docs page.
 
@@ -297,7 +301,7 @@ z.object({
 | 1 | `diagnose_chain_health` | ✅ shipped 2026-05-23 | Proved composite plumbing with zero new schemas. |
 | 2 | `explain_smart_contract` | ✅ shipped 2026-05-23 | Established `extractScSurface` (now in `_shared.ts`) for reuse by composites 4 & 5. |
 | 3 | `recommend_docs_path` | ✅ shipped 2026-05-23 | Docs-only composite — independent of chain semantics. Added `NO_DOCS_MATCH` classifier branch. |
-| 4 | `estimate_deploy_cost` | ⬜ pending | Reuses SC surface; numeric care required. |
+| 4 | `estimate_deploy_cost` | ✅ shipped 2026-05-23 | Reused `extractScSurface` for SC enrichment; added `RPC error -32098` → `INVALID_INPUT` classifier branch for DVM compile failures. |
 | 5 | `trace_transaction_with_context` | ⬜ pending | Highest fan-out + failure-mode count; ship last. |
 
 One composite per commit. Each commit adds: the section already in this doc (or a small refinement of it) + the implementation + the flow test + the smoke probe entry + the citation map entry. Keep commits small and self-contained so a `git revert` cleanly removes one composite without disturbing the others.

@@ -18,11 +18,11 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 
 | Primitive | Count | Notes |
 |---|---:|---|
-| Tools | 23 | 20 daemon-read + bundled-docs primitives plus 3 composites (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
+| Tools | 24 | 20 daemon-read + bundled-docs primitives plus 4 composites (`diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, `estimate_deploy_cost`). All carry `readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false`. |
 | Resources | 3 | Server info, safety boundary, example flows |
 | Prompts | 3 | Network health, SC inspection, tx tracing |
-| Curated docs citations | 12 | Across 5 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`, `explain_smart_contract`). Validated against the bundled index in CI. `recommend_docs_path` emits dynamic citations from its top search hits (no static curation needed). |
-| Composite tools | 3 of 5 | `diagnose_chain_health`, `explain_smart_contract`, and `recommend_docs_path` shipped 2026-05-23 (all flow tests green, including `flow-recommend-docs-no-match` covering the `NO_DOCS_MATCH` failure mode). Remaining two designed in [`composites.md`](./composites.md), pending ship order. |
+| Curated docs citations | 14 | Across 6 tools (`dero_get_info`, `dero_get_sc`, `dero_get_gas_estimate`, `diagnose_chain_health`, `explain_smart_contract`, `estimate_deploy_cost`). Validated against the bundled index in CI. `recommend_docs_path` emits dynamic citations from its top search hits (no static curation needed). |
+| Composite tools | 4 of 5 | `diagnose_chain_health`, `explain_smart_contract`, `recommend_docs_path`, and `estimate_deploy_cost` shipped 2026-05-23 (all flow tests green, including failure-mode coverage for `NO_DOCS_MATCH` and `INVALID_INPUT`). Only `trace_transaction_with_context` remains, designed in [`composites.md`](./composites.md) and pending ship order. |
 
 ---
 
@@ -34,10 +34,10 @@ For the planning artifact (Phase A/B/C utility cycle) see [`agent-utility-improv
 npm run smoke:mcp
 ```
 
-Result (latest run, 2026-05-23 after composite #3):
+Result (latest run, 2026-05-23 after composite #4):
 
-- `tools/list` parity: **23**
-- Read-only annotations on every tool: **23/23**
+- `tools/list` parity: **24**
+- Read-only annotations on every tool: **24/24**
 - `resources/list` parity: **3**
 - `prompts/list` parity: **3**
 - `prompts/get` check: **pass**
@@ -101,7 +101,7 @@ Write operations must remain outside this server unless every gating condition i
 Current CI runs (in order):
 
 1. `npm run build`
-2. `npm run check:mcp-descriptions` — enforces the four-section agent-instruction template on all 23 tool descriptions.
+2. `npm run check:mcp-descriptions` — enforces the four-section agent-instruction template on all 24 tool descriptions.
 3. `npm run check:citations` — validates every curated docs citation slug + title resolves against the bundled index.
 4. `npm run smoke:mcp` — includes annotation parity assertion and `related_docs` smoke check.
 5. `npm run smoke:docs`
@@ -116,7 +116,7 @@ Current CI runs (in order):
 - Wallet-write support (intentionally deferred — see [`decision-boundary.md`](./decision-boundary.md) § "Moving the boundary" for the gating conditions)
 - Streamable HTTP/SSE transport (not required for current stdio-first strategy)
 - Domain DNS discovery artifacts (`.well-known`, `_mcp`, `_agentroot`, `_llms`) until remote transport exists
-- Composite tools — 3 of 5 shipped. Remaining two in [`composites.md`](./composites.md) ship order: `estimate_deploy_cost` → `trace_transaction_with_context`, one self-contained commit to main each.
+- Composite tools — 4 of 5 shipped. Only `trace_transaction_with_context` remains, designed in [`composites.md`](./composites.md) and pending a self-contained commit to main.
 - Runtime tool filtering via `DERO_MCP_ENABLED_TOOLS` env allowlist
 - Input ergonomics: camelCase aliases on the top-3 most-called tools
 

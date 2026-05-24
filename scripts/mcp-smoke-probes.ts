@@ -43,6 +43,7 @@ const EXPECTED_TOOLS = [
   'diagnose_chain_health',
   'explain_smart_contract',
   'recommend_docs_path',
+  'estimate_deploy_cost',
 ] as const
 
 const EXPECTED_RESOURCES = [

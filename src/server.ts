@@ -21,6 +21,10 @@ import {
   recommendDocsPath,
   recommendDocsPathInputSchema,
 } from './composites/recommend-docs-path.js'
+import {
+  estimateDeployCost,
+  estimateDeployCostInputSchema,
+} from './composites/estimate-deploy-cost.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -135,6 +139,14 @@ function classifyToolError(error: unknown): StructuredToolError {
     return {
       code: 'RPC_INVALID_PARAMS',
       hint: 'Verify argument names and types for this tool.',
+      retryable: false,
+    }
+  }
+
+  if (message.includes('RPC error -32098')) {
+    return {
+      code: 'INVALID_INPUT',
+      hint: 'The DVM compiler rejected the contract source. Inspect _meta.error.raw for the exact compile error (often points at a line, symbol, or missing keyword). Common causes: missing `End Function`, missing return type (`Uint64`/`String`), unbalanced parens, or sending a function body instead of a full contract.',
       retryable: false,
     }
   }
@@ -643,6 +655,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       inputSchema: recommendDocsPathInputSchema,
     }),
     withStructuredErrors('recommend_docs_path', async (args) => recommendDocsPath(args)),
+  )
+
+  server.registerTool(
+    'estimate_deploy_cost',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.estimate_deploy_cost,
+      inputSchema: estimateDeployCostInputSchema,
+    }),
+    withStructuredErrors('estimate_deploy_cost', async (args) => estimateDeployCost(rpc, args)),
   )
 
   server.registerResource(
