@@ -227,6 +227,7 @@ What got shipped as "Phase D ergonomics" diverged from the original P3 list — 
 | ✅ shipped 2026-05-24 | Trim `server.json` description to ≤ 100 chars (registry validator limit caught at `mcp-publisher validate`). |
 | ✅ shipped 2026-05-24 | Refresh `derod.org/tools/mcp-server` page for the 0.2.1 surface (with proper Nextra front matter, missing in the prior revision). |
 | ✅ shipped 2026-05-24 | Release: `npm publish dero-mcp-server@0.2.1`, `mcp-publisher publish` (registry `isLatest: true`), git tag `v0.2.1`, GitHub Release `v0.2.1 — Composites release`. |
+| 🔁 republished 2026-05-24 as 0.2.2 | `0.2.1` was unpublished from npm + registry within the 72h window because the `prepack` hook bundled in unreleased dero-docs content (an untracked `integrity/inflation-claim.mdx` page) that the user hadn't yet pushed to `dero-docs/main`. No security incident — just a content-timing leak. Clean republish as `0.2.2` from a stashed dero-docs working tree (145 pages, matches what's on derod.org). Surface is byte-identical to 0.2.1 except the bundle and version strings. The `v0.2.1` git tag + GitHub Release were also deleted and replaced with `v0.2.2`. Added `prepack` guard recommended in [Phase E.1 polish backlog](#phase-e--future-backlog-do-not-start-without-trigger). |
 
 ### Phase E — Future backlog (do NOT start without trigger)
 
@@ -238,6 +239,7 @@ These are safe to do whenever. None gate the release.
 
 | Item | Why | Trigger |
 |------|-----|---------|
+| **`prepack` guard against publishing with a dirty dero-docs working tree** ⚠️ promoted to "do soon" after the 0.2.1 incident | The `prepack` hook runs `build:docs` which scans the live dero-docs filesystem — including untracked/modified MDX pages. That's how `0.2.1` shipped with content the user hadn't yet pushed to dero-docs/main, requiring an unpublish + republish as `0.2.2`. Guard could be: assert `git -C $DERO_DOCS_ROOT status --porcelain` is empty (or `--allow-dirty` env to opt out for local dev), OR snapshot bundle from `git -C $DERO_DOCS_ROOT archive HEAD` instead of the working tree. | **NOW** — recurrence will look identical to the 0.2.1 incident. |
 | Run `npm pkg fix` in `dero-mcp-server` and commit | Silences the `bin[dero-mcp-server]` whitespace warning emitted by `npm publish`. Cosmetic, but easy to fix. | Anytime before next `npm publish`. |
 | Add a stable `DERO_TRACE_SC_TX_HASH` fixture | The env-gated `flow-trace-sc-install` test is currently SKIPPED by default. Wiring in a known historical SC-install tx hash would exercise the third branch of `trace_transaction_with_context` on every CI run. | When a stable, immutable on-chain SC install tx hash is identified (e.g. from the TELA contracts catalog). |
 | Submit to third-party MCP registries (Smithery, Glama, etc.) per `/Users/home/projects/docs/AI Agent Ready/deploy-and-registry-runbook.md` § "Third-party listings" | Expands reach beyond `registry.modelcontextprotocol.io`. Each registry has its own listing process. | Anytime; bounded by how much manual form-filling is acceptable. |
