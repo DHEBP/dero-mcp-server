@@ -7,7 +7,7 @@
  * response carrying chain metadata, mempool snapshot, narrative summary,
  * and curated docs citations.
  *
- * Design contract: `docs/composites.md` § 1 (lowest-risk composite, ships
+ * Design contract § 1 (lowest-risk composite, ships
  * first to prove the composite plumbing — shared utils + flow test pattern
  * + smoke assertions — end-to-end).
  *

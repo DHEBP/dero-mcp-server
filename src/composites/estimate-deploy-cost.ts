@@ -10,7 +10,7 @@
  * breakdown explaining what each number means, and the curated
  * "Create, Deploy & Use a Smart Contract" docs page as a citation.
  *
- * Design contract: `docs/composites.md` § 4. Sequencing rule: SHIP
+ * Design contract § 4. Sequencing rule: SHIP
  * FOURTH. Numeric semantics; relies on `extractScSurface` (composite
  * #2) being stable. Must not ship before composite #2 because the
  * surface enrichment proves out the reuse path planned in the design

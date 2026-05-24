@@ -13,7 +13,7 @@
  * that guess: one call, one ranked answer, with citations the agent
  * can drop straight into a response.
  *
- * Design contract: `docs/composites.md` § 3. Sequencing rule: SHIP
+ * Design contract § 3. Sequencing rule: SHIP
  * THIRD. Pure docs composition — no chain reads. Proves the
  * "docs-only composite" pattern that future docs-heavy tools can
  * reuse.

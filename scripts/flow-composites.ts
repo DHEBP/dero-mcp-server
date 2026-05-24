@@ -5,7 +5,7 @@
  * Unlike `scripts/flow-test.ts` (raw daemon JSON-RPC checks) and
  * `scripts/mcp-smoke-probes.ts` (lightweight MCP contract checks), this
  * runner exercises each composite tool end-to-end via the MCP transport
- * and asserts the documented response shape from `docs/composites.md`.
+ * composite design contract (maintainer docs).
  *
  * Each composite below has a stable flow test ID documented in its
  * design entry (e.g. `flow-diagnose-chain-health`). New composites
@@ -208,7 +208,7 @@ function assertCitation(cite: Citation, context: string): void {
 }
 
 /**
- * flow-diagnose-chain-health — `docs/composites.md` § 1.
+ * flow-diagnose-chain-health — composite design contract § 1.
  *
  * Asserts:
  *  - `chain.topoheight` is a number (DERO.GetInfo succeeded).
@@ -280,7 +280,7 @@ async function flowDiagnoseChainHealth(client: Client): Promise<void> {
 }
 
 /**
- * flow-explain-name-registry — `docs/composites.md` § 2.
+ * flow-explain-name-registry — composite design contract § 2.
  *
  * Calls `explain_smart_contract` against the on-chain name registry
  * SCID (`0000…0001`), which is well-known and stable on every DERO
@@ -353,7 +353,7 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
 }
 
 /**
- * flow-recommend-docs-deploy-tela — `docs/composites.md` § 3.
+ * flow-recommend-docs-deploy-tela — composite design contract § 3.
  *
  * Asserts:
  *  - At least one TELA recommendation is returned for the intent
@@ -428,7 +428,7 @@ async function flowRecommendDocsDeployTela(client: Client): Promise<void> {
 
 /**
  * flow-recommend-docs-no-match — covers the `NO_DOCS_MATCH` failure
- * mode in `docs/composites.md` § 3. Asserts the composite emits a
+ * mode in composite design contract § 3. Asserts the composite emits a
  * structured `_meta.error` with code `NO_DOCS_MATCH` for an
  * intentionally nonsense intent that should not match any bundled
  * docs page.
@@ -455,7 +455,7 @@ async function flowRecommendDocsNoMatch(client: Client): Promise<void> {
 }
 
 /**
- * flow-estimate-deploy-minimal — `docs/composites.md` § 4.
+ * flow-estimate-deploy-minimal — composite design contract § 4.
  *
  * Asserts:
  *  - `estimate.status` is the daemon's status string (typically "OK").
@@ -532,7 +532,7 @@ async function flowEstimateDeployMinimal(client: Client): Promise<void> {
 }
 
 /**
- * Covers the INVALID_INPUT failure mode in `docs/composites.md` § 4.
+ * Covers the INVALID_INPUT failure mode in composite design contract § 4.
  * Sends a deliberately-malformed DVM source and asserts the composite
  * surfaces a structured `_meta.error` with code `INVALID_INPUT` and
  * the daemon's exact compile message preserved in `raw`.
@@ -564,7 +564,7 @@ async function flowEstimateDeployInvalid(client: Client): Promise<void> {
 }
 
 /**
- * flow-trace-known-transfer — `docs/composites.md` § 5.
+ * flow-trace-known-transfer — composite design contract § 5.
  *
  * Asserts the standard "regular transfer" path of the trace composite
  * against a stable historical tx hash (sourced from the Release-142

@@ -8,7 +8,7 @@
  * docs page — something no generic chain MCP can replicate because no
  * other chain MCP ships the docs index in-process.
  *
- * Design contract: `docs/composites.md` § 2. Sequencing rule: SHIP
+ * Design contract § 2. Sequencing rule: SHIP
  * SECOND — establishes the SC-introspection pattern (`extractScSurface`)
  * that `trace_transaction_with_context` and `estimate_deploy_cost` reuse.
  *

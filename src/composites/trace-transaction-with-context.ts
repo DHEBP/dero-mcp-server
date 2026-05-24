@@ -7,7 +7,7 @@
  * any SC context. This composite combines all of that in one call
  * and stitches the right docs page as a citation.
  *
- * Design contract: `docs/composites.md` § 5. Sequencing rule: SHIP
+ * Design contract § 5. Sequencing rule: SHIP
  * LAST — highest fan-out + failure-mode count of all Phase C
  * composites.
  *

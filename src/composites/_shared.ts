@@ -10,7 +10,7 @@
  * helpers (e.g. narrative builders specific to one composite's response
  * shape) should live next to that composite, not in this file.
  *
- * See `docs/composites.md` for the design contract that governs which
+ * See the composite design contract for which
  * utilities live here and the gate every composite must satisfy before it
  * lands on main.
  */
@@ -135,7 +135,7 @@ export type DeroDaemonRpc = <T = unknown>(method: string, params?: unknown) => P
 //
 // Used by composite #2 (`explain_smart_contract`) and reused by
 // composites #4 (`estimate_deploy_cost`) and #5
-// (`trace_transaction_with_context`) — see `docs/composites.md` § shared
+// (`trace_transaction_with_context`) — see composite design contract § shared
 // utilities. Intentionally pure and dependency-free so it can be unit
 // tested without a daemon.
 

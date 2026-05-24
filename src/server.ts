@@ -637,9 +637,8 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
 
   // ---------- Composite tools (Phase C) ----------
   // Composites chain read-only primitives and bundled docs into
-  // intent-shaped responses. Each composite has a design entry in
-  // `docs/composites.md` that pins its input schema, internal chain,
-  // response shape, failure modes, and flow test ID.
+  // intent-shaped responses. Each composite has a maintainer design contract
+  // (input schema, internal chain, response shape, failure modes, flow test ID).
 
   server.registerTool(
     'diagnose_chain_health',
@@ -867,7 +866,6 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
                   error_codes: ['TX_NOT_FOUND (retryable=true; daemon returns empty record on unknown hashes)', 'RPC_UNREACHABLE'],
                 },
               ],
-              design_contract_doc: 'docs/composites.md in the dero-mcp-server repo',
             },
             null,
             2,
