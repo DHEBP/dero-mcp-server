@@ -172,6 +172,23 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
     },
   ],
+  dero_forge_demo_proof: [
+    {
+      product: 'derod',
+      slug: 'integrity/payload-vs-transaction-proofs',
+      title: 'Proof Types Explained: Transaction vs. Payload Proofs | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'integrity/negative-transfer-protection',
+      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'integrity/range-proof-integrity',
+      title: "Range Proof Integrity: DERO's Triple-Layer Defense | DERO Blockchain",
+    },
+  ],
   // Composite #2 (`explain_smart_contract`) curates all four DVM docs so its
   // heuristic can elevate whichever page best matches the detected surface
   // (token / registry / minimal / generic). The composite re-orders this
@@ -250,6 +267,15 @@ export type FlaggedArtifact = {
   /** Short factual statement appended to responses that match this artifact. */
   context_note: string
   related_docs: readonly RelatedDocsEntry[]
+  /**
+   * The most rebuttal-relevant signed-DERO amount for `dero_forge_demo_proof`
+   * to use when `audit_chain_artifact_claim` is called with
+   * `include_forge_demo: true` and this artifact matches. For the 2022 claim
+   * this is the report's headline amount — forging the same display number
+   * for a non-receiver ring slot is the most direct demonstration that the
+   * pasted string is a display object, not a consensus statement.
+   */
+  demo_amount_dero?: string
 }
 
 export const FLAGGED_CHAIN_ARTIFACTS: readonly FlaggedArtifact[] = [
@@ -267,6 +293,7 @@ export const FLAGGED_CHAIN_ARTIFACTS: readonly FlaggedArtifact[] = [
     ],
     context_note:
       'This block/transaction/proof string appears in publicly circulated 2022 inflation claims. The cited payload proof is a user-supplied display object — not a consensus record — and the alleged negative-transfer mechanism cannot produce a verifying range proof. See related_docs for the technical rebuttal.',
+    demo_amount_dero: '-2200000.00181',
     // TODO: once `integrity/inflation-claim` ships and the bundled docs index
     // refreshes, prepend it as the primary citation:
     //   { product: 'derod', slug: 'integrity/inflation-claim', title: '<exact bundled title>' }

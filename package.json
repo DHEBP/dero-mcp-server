@@ -32,10 +32,15 @@
     "test:composites": "npx tsx scripts/flow-composites.ts",
     "check:mcp-descriptions": "npx tsx scripts/check-mcp-descriptions.ts",
     "check:citations": "npx tsx scripts/check-citations.ts",
+    "check:curve-fixtures": "npx tsx scripts/check-curve-fixtures.ts",
+    "check:proof-roundtrip": "npx tsx scripts/check-proof-roundtrip.ts",
+    "check:tx-parse": "npx tsx scripts/check-tx-parse.ts",
+    "check:forge-demo": "npx tsx scripts/check-forge-demo.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@noble/curves": "^2.2.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {

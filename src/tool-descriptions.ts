@@ -277,8 +277,9 @@ Input Requirements (CRITICAL):
 - \`block_hash\` is OPTIONAL. 64 hex characters.
 - \`tx_hash\` is OPTIONAL. 64 hex characters.
 - \`proof_string\` is OPTIONAL. Full \`deroproof…\` / DERO bech32 string with HRP.
+- \`include_forge_demo\` is OPTIONAL (default false). When true AND \`tx_hash\` is provided, also forges a fresh demo proof for the same TX (via \`dero_forge_demo_proof\`) and embeds it under \`forge_demo\`. The demo amount auto-selects: a flagged artifact's pinned amount (e.g. -2.2M for the 2022 claim) > the cited \`proof_string\` V > -1 DERO. PREFER setting this true when the agent is fielding a "Verified ✓ means the chain minted coins, right?" question — the embedded forge IS the refutation.
 
-Output: \`{ verdict, inputs, matched_artifacts[], context_note, chain_facts, proof_decode, narrative, related_docs, _diagnostics }\`. \`verdict\` is \`cited_in_false_claim\` when any input matches the flagged-artifact registry, else \`clean\`. \`chain_facts\` is null when no chain-querying input was provided or all daemon calls failed; \`proof_decode\` is null when no \`proof_string\` was provided.
+Output: \`{ verdict, inputs, matched_artifacts[], context_note, chain_facts, proof_decode, forge_demo, narrative, related_docs, _diagnostics }\`. \`verdict\` is \`cited_in_false_claim\` when any input matches the flagged-artifact registry, else \`clean\`. \`chain_facts\` is null when no chain-querying input was provided or all daemon calls failed; \`proof_decode\` is null when no \`proof_string\` was provided. \`forge_demo\` is null unless \`include_forge_demo: true\` was passed; on success it carries \`{ skipped: false, forged_proof_string, target_amount, ring_slot, ring_size, ring_receiver_address, math, self_check, explorer_display_amount, demo_amount_source }\` (the slim form — full citations stay at the top level).
 
 PREFER citing the returned \`related_docs\` verbatim in the agent response — they are the canonical rebuttal pages and have been validated against the bundled docs index by CI. Quote the \`context_note\` when verdict is \`cited_in_false_claim\` so the user understands why the artifact matters.`,
 
@@ -292,6 +293,21 @@ Input Requirements (CRITICAL):
 Output: \`{ decoded: { hrp, mainnet, is_proof, public_key_hex, arguments[] }, value_interpretation?: { uint64, signed_int64, is_negative_wraparound, signed_atoms, dero }, context_note?, related_docs? }\`. \`arguments\` is an array of \`{ name, type, type_label, semantic_name?, value }\`. \`value_interpretation\` is present only when an \`RPC_VALUE_TRANSFER\` (V) + \`uint64\` (U) argument is found. \`context_note\` + extra \`related_docs\` are silently attached when the input matches a flagged adversarially-cited artifact. Returns a structured \`_meta.error\` with code \`INVALID_BECH32\` on parse failure.
 
 PREFER citing \`integrity/payload-vs-transaction-proofs\` and \`integrity/negative-transfer-protection\` in any agent response that frames a \`deroproof…\` decode result — readers should understand that "this string decodes to value V" is a display-layer fact, not a consensus statement.`,
+
+  dero_forge_demo_proof: `Composite: build a fresh \`deroproof…\` display object for ANY chosen transaction, ring slot, and amount — including negative amounts that uint64-wrap into the trillions. The forged string is constructed locally from public chain data (no wallet, no keys, no broadcast). On an unpatched explorer it shows **Verified ✓** for the chosen amount; on the chain, nothing has changed.
+
+When to call: when a user pastes a \`deroproof…\` string and asks "does Verified ✓ mean the chain minted these coins?" Forge an equivalent string for the same TX with a different amount and show the result side-by-side — that is the most direct refutation. Also useful for reproducing the \`docs/integrity/inflation-claim\` Part 3 demonstration on arbitrary inputs.
+
+Math: \`blinder = C[ring_slot] − amount × G\`, then \`bech32("deroproof", version || blinder || CBOR({HH: zeros, VU: uint64}))\`. The tool runs the same equation \`proof.Prove()\` checks at \`proof/proof.go:88-95\` and self-verifies before returning a string. If the self-check fails, the tool throws rather than emit a string that would not verify.
+
+Input Requirements (CRITICAL):
+- Exactly ONE of \`tx_hash\` or \`tx_hex\` MUST be provided. \`tx_hash\` triggers a daemon fetch (and surfaces the receiver address); \`tx_hex\` skips the daemon and uses the raw bytes the caller already has.
+- \`ring_slot\` is OPTIONAL (default 0). Must be in [0, ring_size).
+- \`amount_dero\` is OPTIONAL (default "-1"). Signed decimal with up to 5 fractional digits, e.g. \`"-1"\`, \`"1000000"\`, \`"-2200000.00181"\`. Negative values produce uint64 wraparounds that unpatched explorers render as positive trillions.
+
+Output: \`{ forged_proof_string, target_amount: { dero, atoms_signed, atoms_uint64 }, ring_slot, ring_size, ring_receiver_address, math: { C_slot_hex, amount_x_G_hex, blinder_hex }, self_check: { verified, method }, explorer_display_amount, context_note, related_docs, _diagnostics }\`. \`ring_receiver_address\` is null when \`tx_hex\` was passed (the hex carries publickey pointers, not addresses).
+
+READ-ONLY: this tool never broadcasts, never touches a wallet, never mutates chain state. It computes a string from public inputs and returns it. Annotation \`readOnlyHint: true\` is preserved. PREFER citing the returned \`related_docs\` (the integrity rebuttal pages) in any agent response — readers should understand the forged string is a display-layer object, not a consensus event.`,
 } as const
 
 export type DeroToolName = keyof typeof TOOL_DESCRIPTIONS

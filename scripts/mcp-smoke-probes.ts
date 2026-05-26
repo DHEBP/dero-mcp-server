@@ -47,6 +47,7 @@ const EXPECTED_TOOLS = [
   'estimate_deploy_cost',
   'trace_transaction_with_context',
   'audit_chain_artifact_claim',
+  'dero_forge_demo_proof',
 ] as const
 
 const EXPECTED_RESOURCES = [

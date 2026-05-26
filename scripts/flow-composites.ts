@@ -725,6 +725,231 @@ async function flowTraceScInstallOptional(client: Client): Promise<void> {
   )
 }
 
+/**
+ * flow-forge-demo-cited2022: gold-standard end-to-end test through the MCP
+ * transport. Forges a `-1 DERO`, slot-0 proof against the cited 2022
+ * inflation-claim TX and asserts the output matches the integrity-page Part 3
+ * documented forge string byte-for-byte.
+ *
+ * The expected string is shipped on derod.org/integrity/inflation-claim and
+ * is the same string `scripts/check-forge-demo.ts` verifies offline. This test
+ * confirms the SAME result lands when the tool is called through the MCP
+ * transport with a daemon-fetched TX (rather than a bundled tx_hex).
+ */
+const CITED_2022_TX_HASH =
+  '5bbe1b7eecfe3447cb045b1197a07a214b456968eda8a3d5a90f5fae9ce57e55'
+const CITED_2022_RECEIVER_SLOT_14 =
+  'dero1qynyngff0r3jvt27anevfhul3v3jfz8g47n7e6v9y3w2434t8ap96qqwje5g5'
+const DOCS_PART3_EXPECTED_FORGED =
+  'deroproof1qyvvfxzyfqtjm0lgyf5jncleh6cxmmfahgmekxpyrzhhsz832dv8qq9zvfyyskpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxy4j4r0lllllllll8jcq3r0a08'
+
+type ForgeDemoProofPayload = {
+  forged_proof_string?: string
+  target_amount?: { dero?: string; atoms_signed?: string; atoms_uint64?: string }
+  ring_slot?: number
+  ring_size?: number
+  ring_receiver_address?: string | null
+  math?: { C_slot_hex?: string; amount_x_G_hex?: string; blinder_hex?: string }
+  self_check?: { verified?: boolean; method?: string }
+  explorer_display_amount?: string
+  context_note?: string | null
+  related_docs?: Citation[]
+}
+
+async function flowForgeDemoCited2022(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'dero_forge_demo_proof',
+    arguments: {
+      tx_hash: CITED_2022_TX_HASH,
+      ring_slot: 0,
+      amount_dero: '-1',
+    },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as ForgeDemoProofPayload
+
+  if (payload.forged_proof_string !== DOCS_PART3_EXPECTED_FORGED) {
+    throw new Error(
+      `dero_forge_demo_proof: forged string drift\n  expected: ${DOCS_PART3_EXPECTED_FORGED}\n  actual:   ${payload.forged_proof_string}`,
+    )
+  }
+  if (payload.self_check?.verified !== true) {
+    throw new Error('dero_forge_demo_proof: self_check.verified !== true')
+  }
+  if (payload.target_amount?.atoms_uint64 !== '18446744073709451616') {
+    throw new Error(
+      `dero_forge_demo_proof: atoms_uint64 wraparound mismatch (got ${payload.target_amount?.atoms_uint64})`,
+    )
+  }
+  if (payload.ring_size !== 16 || payload.ring_slot !== 0) {
+    throw new Error(
+      `dero_forge_demo_proof: expected ring 16/slot 0, got ring ${payload.ring_size}/slot ${payload.ring_slot}`,
+    )
+  }
+  if (payload.explorer_display_amount !== '184,467,440,737,094.51616 DERO') {
+    throw new Error(
+      `dero_forge_demo_proof: explorer display mismatch (got "${payload.explorer_display_amount}")`,
+    )
+  }
+  if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
+    throw new Error('dero_forge_demo_proof: related_docs missing — flagged-artifact enrichment did not fire')
+  }
+  for (const cite of payload.related_docs) {
+    assertCitation(cite, 'dero_forge_demo_proof.related_docs')
+  }
+  if (typeof payload.context_note !== 'string' || payload.context_note.length < 40) {
+    throw new Error('dero_forge_demo_proof: context_note missing or too short')
+  }
+  // Slot 0 has its own receiver address — this is NOT the receiver named in
+  // the public rebuttal (slot 14). We just confirm the field populated, since
+  // we passed tx_hash (not tx_hex). The slot-14 address is asserted below.
+  if (typeof payload.ring_receiver_address !== 'string' || !payload.ring_receiver_address.startsWith('dero1')) {
+    throw new Error(
+      `dero_forge_demo_proof: ring_receiver_address missing for tx_hash path (got ${payload.ring_receiver_address})`,
+    )
+  }
+
+  console.log(
+    `OK  flow-forge-demo-cited2022 (forged=${payload.forged_proof_string?.slice(0, 32)}…, slot=${payload.ring_slot}/${payload.ring_size}, display=${payload.explorer_display_amount}, citations=${payload.related_docs.length})`,
+  )
+}
+
+/**
+ * flow-forge-demo-slot14: forges a fresh demo proof against slot 14 of the
+ * cited 2022 TX and confirms the daemon-returned ring address at that slot
+ * matches the receiver named in the public rebuttal page. Cross-checks the
+ * ring_receiver_address surface against an externally documented value.
+ */
+async function flowForgeDemoSlot14Receiver(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'dero_forge_demo_proof',
+    arguments: {
+      tx_hash: CITED_2022_TX_HASH,
+      ring_slot: 14,
+      amount_dero: '-1',
+    },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as ForgeDemoProofPayload
+  if (payload.ring_receiver_address !== CITED_2022_RECEIVER_SLOT_14) {
+    throw new Error(
+      `dero_forge_demo_proof: ring_receiver_address for slot 14 mismatch\n  expected: ${CITED_2022_RECEIVER_SLOT_14}\n  actual:   ${payload.ring_receiver_address}`,
+    )
+  }
+  if (payload.self_check?.verified !== true) {
+    throw new Error('dero_forge_demo_proof: self_check.verified !== true for slot 14 forge')
+  }
+  console.log(
+    `OK  flow-forge-demo-slot14-receiver (matches rebuttal-page receiver, self_check=verified)`,
+  )
+}
+
+/**
+ * flow-forge-demo-invalid: provide neither tx_hash nor tx_hex; expect a
+ * structured INVALID_INPUT error so the failure shape is consistent with the
+ * rest of the composite layer.
+ */
+async function flowForgeDemoInvalid(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'dero_forge_demo_proof',
+    arguments: {},
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as StructuredErrorPayload
+  if (payload?.ok !== false || payload?._meta?.error?.code !== 'INVALID_INPUT') {
+    throw new Error(
+      `dero_forge_demo_proof: expected _meta.error.code=INVALID_INPUT, got ${JSON.stringify(payload).slice(0, 200)}`,
+    )
+  }
+  console.log(`OK  flow-forge-demo-invalid (code=${payload._meta.error.code})`)
+}
+
+/**
+ * flow-audit-cited2022-with-forge-demo: exercises `include_forge_demo: true`
+ * on the audit composite. The audit response should carry verdict
+ * `cited_in_false_claim` AND an embedded forge_demo built with the flagged
+ * artifact's pinned amount (-2,200,000.00181 for the 2022 entry), pointing
+ * at slot 0 (NOT the real receiver). One tool call = full rebuttal arc.
+ */
+type AuditWithForgePayload = {
+  verdict?: string
+  forge_demo?:
+    | {
+        skipped: false
+        forged_proof_string?: string
+        target_amount?: { dero?: string; atoms_uint64?: string }
+        ring_slot?: number
+        ring_size?: number
+        explorer_display_amount?: string
+        self_check?: { verified?: boolean }
+        demo_amount_source?: string
+      }
+    | { skipped: true; reason: string }
+    | null
+  narrative?: string
+}
+
+async function flowAuditCited2022WithForgeDemo(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'audit_chain_artifact_claim',
+    arguments: {
+      tx_hash: CITED_2022_TX_HASH,
+      include_forge_demo: true,
+    },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as AuditWithForgePayload
+
+  if (payload.verdict !== 'cited_in_false_claim') {
+    throw new Error(
+      `audit_chain_artifact_claim: expected verdict=cited_in_false_claim for cited TX, got "${payload.verdict}"`,
+    )
+  }
+  if (!payload.forge_demo || ('skipped' in payload.forge_demo && payload.forge_demo.skipped)) {
+    throw new Error(
+      `audit_chain_artifact_claim: expected populated forge_demo, got ${JSON.stringify(payload.forge_demo)}`,
+    )
+  }
+  const forge = payload.forge_demo
+  if (forge.target_amount?.dero !== '-2200000.00181') {
+    throw new Error(
+      `audit_chain_artifact_claim: expected forge_demo.target_amount.dero=-2200000.00181 (flagged-artifact pinned), got "${forge.target_amount?.dero}"`,
+    )
+  }
+  if (forge.target_amount?.atoms_uint64 !== '18446743853709551435') {
+    throw new Error(
+      `audit_chain_artifact_claim: forge_demo.atoms_uint64 wraparound mismatch (got ${forge.target_amount?.atoms_uint64})`,
+    )
+  }
+  if (forge.ring_slot !== 0 || forge.ring_size !== 16) {
+    throw new Error(
+      `audit_chain_artifact_claim: expected forge_demo ring 16/slot 0, got ring ${forge.ring_size}/slot ${forge.ring_slot}`,
+    )
+  }
+  if (forge.self_check?.verified !== true) {
+    throw new Error('audit_chain_artifact_claim: forge_demo.self_check.verified !== true')
+  }
+  if (forge.demo_amount_source !== 'flagged_artifact') {
+    throw new Error(
+      `audit_chain_artifact_claim: expected demo_amount_source=flagged_artifact, got "${forge.demo_amount_source}"`,
+    )
+  }
+  if (
+    typeof payload.narrative !== 'string' ||
+    !payload.narrative.toLowerCase().includes('forged')
+  ) {
+    throw new Error('audit_chain_artifact_claim: narrative did not mention the forge')
+  }
+
+  console.log(
+    `OK  flow-audit-cited2022-with-forge-demo (verdict=${payload.verdict}, forged=${forge.forged_proof_string?.slice(0, 32)}…, source=${forge.demo_amount_source}, display=${forge.explorer_display_amount})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -756,6 +981,10 @@ async function main(): Promise<void> {
     await flowTraceKnownTransfer(client)
     await flowTraceTxNotFound(client)
     await flowTraceScInstallOptional(client)
+    await flowForgeDemoCited2022(client)
+    await flowForgeDemoSlot14Receiver(client)
+    await flowForgeDemoInvalid(client)
+    await flowAuditCited2022WithForgeDemo(client)
 
     console.log('')
     console.log('All composite flow tests passed.')

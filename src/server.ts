@@ -15,6 +15,10 @@ import {
   auditChainArtifactClaimInputSchema,
 } from './composites/audit-chain-artifact-claim.js'
 import {
+  forgeDemoProof,
+  forgeDemoProofInputSchema,
+} from './composites/forge-demo-proof.js'
+import {
   diagnoseChainHealth,
   diagnoseChainHealthInputSchema,
 } from './composites/diagnose-chain-health.js'
@@ -87,6 +91,17 @@ type StructuredToolError = {
 
 function classifyToolError(error: unknown): StructuredToolError {
   const message = error instanceof Error ? error.message : String(error)
+
+  // Generic `INVALID_INPUT: <reason>` prefix used by composites that validate
+  // their own argument shape (audit_chain_artifact_claim, dero_forge_demo_proof).
+  // The composite's own `<reason>` is preserved verbatim in `_meta.error.raw`.
+  if (message.startsWith('INVALID_INPUT:')) {
+    return {
+      code: 'INVALID_INPUT',
+      hint: message.slice('INVALID_INPUT:'.length).trim() || 'Re-check the tool input shape against the tool description.',
+      retryable: false,
+    }
+  }
 
   if (message.includes('Provide either hash or height')) {
     return {
@@ -785,6 +800,17 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     }),
     withStructuredErrors('audit_chain_artifact_claim', async (args) =>
       auditChainArtifactClaim(rpc, args ?? {}),
+    ),
+  )
+
+  server.registerTool(
+    'dero_forge_demo_proof',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_forge_demo_proof,
+      inputSchema: forgeDemoProofInputSchema,
+    }),
+    withStructuredErrors('dero_forge_demo_proof', async (args) =>
+      forgeDemoProof(rpc, args ?? {}),
     ),
   )
 

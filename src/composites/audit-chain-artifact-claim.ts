@@ -37,6 +37,7 @@ import {
   type FlaggedArtifact,
 } from '../citations.js'
 import { decodeDeroBech32, interpretValueTransfer } from '../proof-decode.js'
+import { forgeDemoProof, type ForgeDemoProofResult } from './forge-demo-proof.js'
 import {
   runChain,
   stepLatencies,
@@ -67,6 +68,12 @@ export const auditChainArtifactClaimInputSchema = {
     .min(8)
     .optional()
     .describe('Optional `deroproof…` / DERO bech32 string to also decode and check.'),
+  include_forge_demo: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true AND tx_hash is provided, also forge a fresh demo proof for the same TX (via dero_forge_demo_proof) and embed it under `forge_demo`. Closes the rebuttal loop in one tool call. Default false.',
+    ),
 } as const
 
 export type AuditChainArtifactClaimInput = {
@@ -74,6 +81,7 @@ export type AuditChainArtifactClaimInput = {
   block_hash?: string
   tx_hash?: string
   proof_string?: string
+  include_forge_demo?: boolean
 }
 
 type BlockHeaderResult = {
@@ -117,6 +125,27 @@ type AuditProofDecode = {
   error?: string
 }
 
+/**
+ * Slimmed-down embedded forge result. Strips the duplicate citations/context
+ * note (the audit response already carries those at the top level) and
+ * diagnostics. Keeps the math + the actual forged string + the receiver +
+ * the self-check — the pieces that make this useful for the agent.
+ */
+export type EmbeddedForgeDemo =
+  | {
+      skipped: false
+      forged_proof_string: string
+      target_amount: ForgeDemoProofResult['target_amount']
+      ring_slot: number
+      ring_size: number
+      ring_receiver_address: string | null
+      math: ForgeDemoProofResult['math']
+      self_check: ForgeDemoProofResult['self_check']
+      explorer_display_amount: string
+      demo_amount_source: 'flagged_artifact' | 'proof_string_v' | 'default'
+    }
+  | { skipped: true; reason: string }
+
 export type AuditChainArtifactClaimResult = {
   verdict: AuditVerdict
   inputs: AuditChainArtifactClaimInput
@@ -124,6 +153,7 @@ export type AuditChainArtifactClaimResult = {
   context_note: string | null
   chain_facts: AuditChainFacts | null
   proof_decode: AuditProofDecode | null
+  forge_demo: EmbeddedForgeDemo | null
   narrative: string
   related_docs: DeroCitation[]
   _diagnostics: {
@@ -143,6 +173,7 @@ function buildNarrative(
   matched: FlaggedArtifact[],
   chainFacts: AuditChainFacts | null,
   proofDecode: AuditProofDecode | null,
+  forgeDemo: EmbeddedForgeDemo | null,
 ): string {
   const parts: string[] = []
 
@@ -189,6 +220,12 @@ function buildNarrative(
     parts.push(`Proof-string decode failed: ${proofDecode.error}`)
   }
 
+  if (forgeDemo && !forgeDemo.skipped) {
+    parts.push(
+      `For comparison, we forged a fresh proof for ring slot ${forgeDemo.ring_slot} targeting ${forgeDemo.target_amount.dero} DERO (display amount ${forgeDemo.explorer_display_amount}). It self-verifies under the same equation proof.Prove() uses — meaning an unpatched explorer would mark it Verified ✓ — yet nothing on-chain moved. The cited payload proof is the same kind of object.`,
+    )
+  }
+
   if (verdict === 'cited_in_false_claim') {
     parts.push('See related_docs for the technical rebuttal — the cited payload proof is a display object, not a consensus record.')
   }
@@ -202,7 +239,8 @@ function buildNarrative(
  *   2. Optional `DERO.GetBlockHeaderByTopoHeight` / `DERO.GetBlockHeaderByHash`.
  *   3. Optional `DERO.GetTransaction` for accepted/pool status.
  *   4. Optional proof-string decode.
- *   5. Narrative + related_docs assembly.
+ *   5. Optional forge-demo (when `include_forge_demo: true` and tx_hash present).
+ *   6. Narrative + related_docs assembly.
  */
 export async function auditChainArtifactClaim(
   rpc: DeroDaemonRpc,
@@ -275,7 +313,58 @@ export async function auditChainArtifactClaim(
     }
   }
 
-  // ─── 5. Assemble chain_facts payload ─────────────────────────────────────
+  // ─── 5. Optional forge-demo (closes the rebuttal loop in one call) ───────
+  let forge_demo: EmbeddedForgeDemo | null = null
+  if (input.include_forge_demo) {
+    if (!input.tx_hash) {
+      forge_demo = {
+        skipped: true,
+        reason: 'include_forge_demo requires tx_hash (forging needs the TX commitments)',
+      }
+    } else {
+      // Pick the most rebuttal-relevant demo amount:
+      //   - matched flagged artifact's pinned amount (e.g. -2.2M for 2022 claim)
+      //   - else reuse the cited proof_string V if we successfully decoded one
+      //   - else default to -1 DERO
+      let demoAmount = '-1'
+      let demoSource: 'flagged_artifact' | 'proof_string_v' | 'default' = 'default'
+      const flaggedAmount = matched.find((a) => typeof a.demo_amount_dero === 'string')
+        ?.demo_amount_dero
+      if (flaggedAmount) {
+        demoAmount = flaggedAmount
+        demoSource = 'flagged_artifact'
+      } else if (proofDecode?.value_interpretation?.dero) {
+        demoAmount = proofDecode.value_interpretation.dero
+        demoSource = 'proof_string_v'
+      }
+      try {
+        const forged = await forgeDemoProof(rpc, {
+          tx_hash: input.tx_hash,
+          ring_slot: 0,
+          amount_dero: demoAmount,
+        })
+        forge_demo = {
+          skipped: false,
+          forged_proof_string: forged.forged_proof_string,
+          target_amount: forged.target_amount,
+          ring_slot: forged.ring_slot,
+          ring_size: forged.ring_size,
+          ring_receiver_address: forged.ring_receiver_address,
+          math: forged.math,
+          self_check: forged.self_check,
+          explorer_display_amount: forged.explorer_display_amount,
+          demo_amount_source: demoSource,
+        }
+      } catch (error) {
+        forge_demo = {
+          skipped: true,
+          reason: `forge failed: ${error instanceof Error ? error.message : String(error)}`,
+        }
+      }
+    }
+  }
+
+  // ─── 6. Assemble chain_facts payload ─────────────────────────────────────
   const blockHeaderTopo = stepValue<BlockHeaderResult>(chain, 'block_header_by_topo')
   const blockHeaderHash = stepValue<BlockHeaderResult>(chain, 'block_header_by_hash')
   const txResult = stepValue<TransactionResult>(chain, 'get_transaction')
@@ -300,7 +389,7 @@ export async function auditChainArtifactClaim(
     }
   })()
 
-  // ─── 6. Verdict + narrative + related_docs ────────────────────────────────
+  // ─── 7. Verdict + narrative + related_docs ────────────────────────────────
   const verdict: AuditVerdict = matched.length > 0 ? 'cited_in_false_claim' : 'clean'
   const enrichment = enrichWithFlaggedArtifacts(
     {
@@ -332,7 +421,7 @@ export async function auditChainArtifactClaim(
       .map((m) => m.kind),
   }))
 
-  const narrative = buildNarrative(verdict, input, matched, chainFacts, proofDecode)
+  const narrative = buildNarrative(verdict, input, matched, chainFacts, proofDecode, forge_demo)
 
   return {
     verdict,
@@ -341,6 +430,7 @@ export async function auditChainArtifactClaim(
     context_note,
     chain_facts: chainFacts,
     proof_decode: proofDecode,
+    forge_demo,
     narrative,
     related_docs,
     _diagnostics: {

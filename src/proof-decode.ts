@@ -452,3 +452,251 @@ export function decodeDeroBech32(input: string): DecodedAddress {
     ...(valueTransfer ? { value_transfer_uint64: BigInt(valueTransfer.value as string) } : {}),
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Encoders — bech32 + deterministic CBOR
+//
+// Inverse of the decoder block above. Two responsibilities:
+//   1. bech32Encode(hrp, 5-bit data) — checksum + charset mapping (BIP-0173).
+//   2. cborEncode(value) — minimal canonical CBOR for what DERO actually
+//      serializes in deroproof argument maps. DEROHE uses
+//      cbor.SortCoreDeterministic, so we must:
+//        - encode every integer in shortest form
+//        - sort map keys by encoded-key bytes (length, then lex)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function bech32CreateChecksum(hrp: string, data: readonly number[]): number[] {
+  const values = [...bech32HrpExpand(hrp), ...data, 0, 0, 0, 0, 0, 0]
+  const polymod = bech32Polymod(values) ^ 1
+  const out: number[] = []
+  for (let i = 0; i < 6; i++) out.push((polymod >>> (5 * (5 - i))) & 31)
+  return out
+}
+
+/** Encode HRP + 5-bit data array to a bech32 string. Inverse of `bech32Decode`. */
+export function bech32Encode(hrp: string, data: readonly number[]): string {
+  const checksum = bech32CreateChecksum(hrp, data)
+  const combined = [...data, ...checksum]
+  let out = hrp + '1'
+  for (const v of combined) {
+    if (v < 0 || v >= 32) throw new Error(`bech32Encode: value out of range ${v}`)
+    out += BECH32_CHARSET[v]
+  }
+  return out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CBOR encoder
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Encode `value` as CBOR head (major type + length/value). Always shortest form. */
+function cborEncodeHead(major: number, value: bigint): Uint8Array {
+  const mt = major << 5
+  if (value < 0n) throw new Error(`cborEncodeHead: negative value ${value}`)
+  if (value < 24n) return new Uint8Array([mt | Number(value)])
+  if (value < 1n << 8n) return new Uint8Array([mt | 24, Number(value)])
+  if (value < 1n << 16n) {
+    const v = Number(value)
+    return new Uint8Array([mt | 25, (v >>> 8) & 0xff, v & 0xff])
+  }
+  if (value < 1n << 32n) {
+    const v = Number(value)
+    return new Uint8Array([mt | 26, (v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff])
+  }
+  if (value < 1n << 64n) {
+    const out = new Uint8Array(9)
+    out[0] = mt | 27
+    let v = value
+    for (let i = 8; i >= 1; i--) {
+      out[i] = Number(v & 0xffn)
+      v >>= 8n
+    }
+    return out
+  }
+  throw new Error(`cborEncodeHead: value out of uint64 range ${value}`)
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  let total = 0
+  for (const p of parts) total += p.length
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const p of parts) {
+    out.set(p, offset)
+    offset += p.length
+  }
+  return out
+}
+
+/** Compare two byte sequences lexicographically (shorter first, then bytewise). */
+function compareCanonicalKeys(a: Uint8Array, b: Uint8Array): number {
+  if (a.length !== b.length) return a.length - b.length
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i]
+  }
+  return 0
+}
+
+/**
+ * Value type accepted by the CBOR encoder. Mirrors the subset of types that
+ * `parseArgumentEntry` can surface — sufficient for deroproof argument maps.
+ */
+export type CborValue =
+  | bigint
+  | number
+  | string
+  | Uint8Array
+  | boolean
+  | null
+  | CborValue[]
+  | { [key: string]: CborValue }
+
+/** Deterministic-CBOR encode a value (RFC 8949 core deterministic). */
+export function cborEncode(value: CborValue): Uint8Array {
+  if (value === null) return new Uint8Array([0xf6])
+  if (value === true) return new Uint8Array([0xf5])
+  if (value === false) return new Uint8Array([0xf4])
+
+  if (typeof value === 'bigint' || typeof value === 'number') {
+    const big = typeof value === 'bigint' ? value : BigInt(value)
+    if (big < 0n) {
+      // major type 1: negative integer, value = -1 - n → encode n.
+      const n = -1n - big
+      return cborEncodeHead(1, n)
+    }
+    return cborEncodeHead(0, big)
+  }
+
+  if (typeof value === 'string') {
+    const utf8 = new TextEncoder().encode(value)
+    return concatBytes([cborEncodeHead(3, BigInt(utf8.length)), utf8])
+  }
+
+  if (value instanceof Uint8Array) {
+    return concatBytes([cborEncodeHead(2, BigInt(value.length)), value])
+  }
+
+  if (Array.isArray(value)) {
+    const parts: Uint8Array[] = [cborEncodeHead(4, BigInt(value.length))]
+    for (const item of value) parts.push(cborEncode(item))
+    return concatBytes(parts)
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).map(
+      ([k, v]) => [cborEncode(k), cborEncode(v)] as const,
+    )
+    entries.sort((a, b) => compareCanonicalKeys(a[0], b[0]))
+    const parts: Uint8Array[] = [cborEncodeHead(5, BigInt(entries.length))]
+    for (const [k, v] of entries) {
+      parts.push(k)
+      parts.push(v)
+    }
+    return concatBytes(parts)
+  }
+
+  throw new Error(`cborEncode: unsupported value type ${typeof value}`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// High-level deroproof / deroi encoder
+// ─────────────────────────────────────────────────────────────────────────────
+
+function hexToBytesLocal(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) throw new Error(`hex: odd length ${hex.length}`)
+  const out = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return out
+}
+
+/**
+ * Build a `deroproof…` / `deroi…` / `detoi…` bech32 string from a compressed
+ * public-key point (the embedded blinder, for proofs) and a typed argument map.
+ *
+ * Arguments are passed as a plain object whose keys are `Name + DataType`
+ * (e.g. `HH` for hash, `VU` for uint64 value transfer). Values are typed:
+ *   - `U` / `I`: bigint
+ *   - `H` / `A`: Uint8Array (32 bytes for hash, 33 for address)
+ *   - `S`: string
+ */
+export function encodeDeroBech32(
+  hrp: 'dero' | 'deto' | 'deroi' | 'detoi' | 'deroproof',
+  pointBytes33: Uint8Array,
+  args?: Record<string, CborValue>,
+): string {
+  if (pointBytes33.length !== 33) {
+    throw new Error(`encodeDeroBech32: point must be 33 bytes, got ${pointBytes33.length}`)
+  }
+  const wantsArgs = hrp === 'deroi' || hrp === 'detoi' || hrp === 'deroproof'
+  const argBytes = wantsArgs && args ? cborEncode(args) : new Uint8Array(0)
+
+  const body = new Uint8Array(1 + 33 + argBytes.length)
+  body[0] = 1 // version
+  body.set(pointBytes33, 1)
+  body.set(argBytes, 34)
+
+  const data5 = convertBits(Array.from(body), 8, 5, true)
+  return bech32Encode(hrp, data5)
+}
+
+/**
+ * Build a deroproof string for a forged amount. Convenience wrapper around
+ * `encodeDeroBech32` that handles the canonical `{HH, VU}` arg shape.
+ *
+ *   HH = 32 zero bytes (the docs forge code uses `crypto.Hash{}` here)
+ *   VU = uint64 amount
+ */
+export function encodeForgeProofString(
+  blinderCompressed33: Uint8Array,
+  amountUint64: bigint,
+  hrp: 'deroproof' = 'deroproof',
+): string {
+  if (amountUint64 < 0n || amountUint64 >= 1n << 64n) {
+    throw new Error(`encodeForgeProofString: amount out of uint64 range ${amountUint64}`)
+  }
+  return encodeDeroBech32(hrp, blinderCompressed33, {
+    HH: new Uint8Array(32),
+    VU: amountUint64,
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Round-trip self-tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Citation: the 2022 inflation-claim payload proof. Used by self-tests. */
+export const CITED_2022_PROOF_STRING =
+  'deroproof1qyyj0cgu3htmkumr79sgca75vwsx8kx7zkrjg0nfez46w36qyx4kwq9zvfyyskpqvdpcfhkhk4m7y9d77ehyj7yhnnrv9z0tjr9m5fqe2yx9t27dwtdxy4j4r0llll7vcmaxwjcl8jzfq'
+
+/**
+ * Decode the cited 2022 proof string, re-encode it with the **same decoded
+ * arguments** (the real H hash, not zeros), and confirm byte-equal output.
+ *
+ * If this fails, the encoder is not faithful to DERO's canonical CBOR + bech32
+ * wire format and forging anything else is unsafe to surface.
+ *
+ * (The forge path defaults H to 32 zero bytes — see `encodeForgeProofString`.
+ * That's correct for the docs-page demo but would not reproduce a real
+ * wallet-generated proof, which has a real shared-key hash in H.)
+ */
+export function verifyProofEncoderRoundtrip(): void {
+  const decoded = decodeDeroBech32(CITED_2022_PROOF_STRING)
+  if (decoded.value_transfer_uint64 === undefined) {
+    throw new Error('roundtrip: cited 2022 proof missing V — decoder regression')
+  }
+  const hArg = decoded.arguments.find((a) => a.name === 'H' && a.type === 'H')
+  if (!hArg) throw new Error('roundtrip: cited 2022 proof missing H — decoder regression')
+
+  const point = hexToBytesLocal(decoded.public_key_hex)
+  const reencoded = encodeDeroBech32('deroproof', point, {
+    HH: hexToBytesLocal(hArg.value as string),
+    VU: decoded.value_transfer_uint64,
+  })
+  if (reencoded !== CITED_2022_PROOF_STRING) {
+    throw new Error(
+      `roundtrip: cited 2022 proof mismatch\n  in:  ${CITED_2022_PROOF_STRING}\n  out: ${reencoded}`,
+    )
+  }
+}
