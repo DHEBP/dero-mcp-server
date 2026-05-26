@@ -17,6 +17,7 @@
 
 import {
   buildDeroCitation,
+  FLAGGED_CHAIN_ARTIFACTS,
   RELATED_DOCS_BY_TOOL,
 } from '../src/citations.js'
 import { getDeroDocPage } from '../src/docs.js'
@@ -68,6 +69,48 @@ async function check(): Promise<Failure[]> {
     }
   }
 
+  // Validate flagged-artifact citations against the same bundled index.
+  // These attach silently when tool inputs match adversarially-cited
+  // on-chain artifacts, so a docs reorg breaking them would silently
+  // degrade the defense.
+  for (const artifact of FLAGGED_CHAIN_ARTIFACTS) {
+    for (const entry of artifact.related_docs) {
+      const expected = buildDeroCitation(entry.product, entry.slug, entry.title)
+      const label = `flagged:${artifact.id}`
+
+      let page: Awaited<ReturnType<typeof getDeroDocPage>>
+      try {
+        page = await getDeroDocPage({ product: entry.product, slug: entry.slug })
+      } catch (error) {
+        failures.push({
+          tool: label,
+          slug: entry.slug,
+          product: entry.product,
+          reason: `slug did not resolve: ${error instanceof Error ? error.message : String(error)}`,
+        })
+        continue
+      }
+
+      if (page.title !== entry.title) {
+        failures.push({
+          tool: label,
+          slug: entry.slug,
+          product: entry.product,
+          reason: `title drift — expected "${entry.title}", bundled index has "${page.title}"`,
+        })
+      }
+
+      if (page.canonical_url !== expected.canonical_url) {
+        failures.push({
+          tool: label,
+          slug: entry.slug,
+          product: entry.product,
+          reason: `canonical_url drift — expected ${expected.canonical_url}, bundled index has ${page.canonical_url}`,
+        })
+      }
+    }
+  }
+
   return failures
 }
 
@@ -77,8 +120,12 @@ async function main() {
     0,
   )
   const toolCount = Object.keys(RELATED_DOCS_BY_TOOL).length
+  const flaggedCount = FLAGGED_CHAIN_ARTIFACTS.reduce(
+    (n, a) => n + a.related_docs.length,
+    0,
+  )
   console.log(
-    `[check:citations] checking ${entryCount} curated citations across ${toolCount} tool(s)`,
+    `[check:citations] checking ${entryCount} curated citations across ${toolCount} tool(s) + ${flaggedCount} flagged-artifact citations across ${FLAGGED_CHAIN_ARTIFACTS.length} artifact(s)`,
   )
 
   const failures = await check()

@@ -266,6 +266,32 @@ Input Requirements:
 - \`include_tx_pool\` is OPTIONAL (default true). Set false to skip the mempool snapshot when you only need chain-tip status.
 
 Output: \`{ status, narrative, signals[], chain, mempool, related_docs, _diagnostics }\`. \`status\` is one of \`healthy | lagging | partial | unreachable\`. \`chain\` is null when DERO.GetInfo was unreachable; \`mempool\` is null when skipped or the call failed. On total daemon unreachability the tool returns a structured \`_meta.error\` with code \`RPC_UNREACHABLE\`.`,
+
+  audit_chain_artifact_claim: `Composite: audit a chain artifact (block topoheight, block hash, TX hash, and/or proof string) end-to-end. Returns a verdict (\`cited_in_false_claim\` | \`clean\`), the actual on-chain facts (block reward, TX acceptance status), an optional proof-string decode, a relayable narrative, and curated rebuttal docs citations.
+
+When to call: when the user asks "what's going on with DERO block X?" / "is this transaction the inflation-claim TX?" / "does this proof string come from a known false claim?" PREFER this over chaining \`dero_get_block_header_by_topo_height\` + \`dero_get_transaction\` + \`dero_decode_proof_string\` yourself: the composite already runs them in parallel, joins them against the flagged false-claim registry, and emits a single \`verdict\` field plus a narrative so the agent does not need to compose the rebuttal arc from scratch each time.
+
+Input Requirements (CRITICAL):
+- At least ONE of \`topoheight\`, \`block_hash\`, \`tx_hash\`, or \`proof_string\` MUST be provided. The composite throws \`INVALID_INPUT\` otherwise.
+- \`topoheight\` is OPTIONAL. Non-negative integer.
+- \`block_hash\` is OPTIONAL. 64 hex characters.
+- \`tx_hash\` is OPTIONAL. 64 hex characters.
+- \`proof_string\` is OPTIONAL. Full \`deroproof…\` / DERO bech32 string with HRP.
+
+Output: \`{ verdict, inputs, matched_artifacts[], context_note, chain_facts, proof_decode, narrative, related_docs, _diagnostics }\`. \`verdict\` is \`cited_in_false_claim\` when any input matches the flagged-artifact registry, else \`clean\`. \`chain_facts\` is null when no chain-querying input was provided or all daemon calls failed; \`proof_decode\` is null when no \`proof_string\` was provided.
+
+PREFER citing the returned \`related_docs\` verbatim in the agent response — they are the canonical rebuttal pages and have been validated against the bundled docs index by CI. Quote the \`context_note\` when verdict is \`cited_in_false_claim\` so the user understands why the artifact matters.`,
+
+  dero_decode_proof_string: `Decode any DERO bech32 string (\`dero…\`, \`deto…\`, \`deroi…\`, \`detoi…\`, or \`deroproof…\`) into its constituent parts: HRP, network, compressed public key, and any embedded RPC arguments (CBOR-encoded). For \`deroproof…\` strings the "public key" is a derived blinder point used in the proof's commitment math, NOT a wallet pubkey — the tool surfaces \`is_proof: true\` so the agent does not mislabel it.
+
+When to call: when the user pastes a \`deroproof…\` / integrated-address string and wants to know what value or fields it encodes. PREFER this over chaining bech32 decoders + CBOR libraries yourself: the tool implements the exact same wire format as DEROHE \`rpc.NewAddress\` and surfaces the \`RPC_VALUE_TRANSFER\` uint64 both as raw and as a signed/wraparound interpretation. The decoder is verified against the publicly-cited 2022 inflation-claim proof string (embedded uint64 = 18446743853709551435 = signed -2,200,000.00181 DERO).
+
+Input Requirements (CRITICAL):
+- \`proof_string\` is REQUIRED. The full bech32 string including HRP and separator (e.g. \`deroproof1qyy…\`). Whitespace is trimmed but the case must be consistent (all lower OR all upper per BIP-0173).
+
+Output: \`{ decoded: { hrp, mainnet, is_proof, public_key_hex, arguments[] }, value_interpretation?: { uint64, signed_int64, is_negative_wraparound, signed_atoms, dero }, context_note?, related_docs? }\`. \`arguments\` is an array of \`{ name, type, type_label, semantic_name?, value }\`. \`value_interpretation\` is present only when an \`RPC_VALUE_TRANSFER\` (V) + \`uint64\` (U) argument is found. \`context_note\` + extra \`related_docs\` are silently attached when the input matches a flagged adversarially-cited artifact. Returns a structured \`_meta.error\` with code \`INVALID_BECH32\` on parse failure.
+
+PREFER citing \`integrity/payload-vs-transaction-proofs\` and \`integrity/negative-transfer-protection\` in any agent response that frames a \`deroproof…\` decode result — readers should understand that "this string decodes to value V" is a display-layer fact, not a consensus statement.`,
 } as const
 
 export type DeroToolName = keyof typeof TOOL_DESCRIPTIONS

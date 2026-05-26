@@ -36,6 +36,7 @@ const EXPECTED_TOOLS = [
   'dero_get_gas_estimate',
   'dero_name_to_address',
   'dero_get_block_template',
+  'dero_decode_proof_string',
   'dero_docs_search',
   'dero_docs_get_page',
   'dero_docs_list',
@@ -45,6 +46,7 @@ const EXPECTED_TOOLS = [
   'recommend_docs_path',
   'estimate_deploy_cost',
   'trace_transaction_with_context',
+  'audit_chain_artifact_claim',
 ] as const
 
 const EXPECTED_RESOURCES = [

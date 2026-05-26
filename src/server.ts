@@ -8,7 +8,12 @@ import {
   searchDeroDocs,
 } from './docs.js'
 import { DERO_TOOL_NAMES, TOOL_DESCRIPTIONS } from './tool-descriptions.js'
-import { relatedDocsFor } from './citations.js'
+import { enrichWithFlaggedArtifacts, relatedDocsFor } from './citations.js'
+import { decodeDeroBech32, interpretValueTransfer } from './proof-decode.js'
+import {
+  auditChainArtifactClaim,
+  auditChainArtifactClaimInputSchema,
+} from './composites/audit-chain-artifact-claim.js'
 import {
   diagnoseChainHealth,
   diagnoseChainHealthInputSchema,
@@ -87,6 +92,15 @@ function classifyToolError(error: unknown): StructuredToolError {
     return {
       code: 'INVALID_INPUT',
       hint: 'Pass exactly one of "hash" or "height".',
+      retryable: false,
+    }
+  }
+
+  if (message.startsWith('INVALID_BECH32:')) {
+    return {
+      code: 'INVALID_BECH32',
+      hint:
+        'Confirm the string starts with one of dero/deto/deroi/detoi/deroproof, includes the "1" separator, and is uniformly cased (BIP-0173 forbids mixed case). See integrity/payload-vs-transaction-proofs for proof anatomy.',
       retryable: false,
     }
   }
@@ -355,7 +369,12 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       const params: Record<string, unknown> = {}
       if (args.hash) params.hash = args.hash
       if (args.height !== undefined) params.height = args.height
-      return rpc('DERO.GetBlock', params)
+      const result = (await rpc<Record<string, unknown>>('DERO.GetBlock', params)) ?? {}
+      const enrichment = enrichWithFlaggedArtifacts(
+        { block_hash: args.hash },
+        relatedDocsFor('dero_get_block'),
+      )
+      return { ...result, ...(enrichment ?? {}) }
     }),
   )
 
@@ -371,8 +390,14 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .describe('Topological height'),
       },
     }),
-    withStructuredErrors('dero_get_block_header_by_topo_height', async ({ topoheight }) =>
-      rpc('DERO.GetBlockHeaderByTopoHeight', { topoheight })),
+    withStructuredErrors('dero_get_block_header_by_topo_height', async ({ topoheight }) => {
+      const result = (await rpc<Record<string, unknown>>('DERO.GetBlockHeaderByTopoHeight', { topoheight })) ?? {}
+      const enrichment = enrichWithFlaggedArtifacts(
+        { topoheight },
+        relatedDocsFor('dero_get_block_header_by_topo_height'),
+      )
+      return { ...result, ...(enrichment ?? {}) }
+    }),
   )
 
   server.registerTool(
@@ -383,8 +408,14 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
         hash: hex64Schema.describe('Block top hash (hex)'),
       },
     }),
-    withStructuredErrors('dero_get_block_header_by_hash', async ({ hash }) =>
-      rpc('DERO.GetBlockHeaderByHash', { hash })),
+    withStructuredErrors('dero_get_block_header_by_hash', async ({ hash }) => {
+      const result = (await rpc<Record<string, unknown>>('DERO.GetBlockHeaderByHash', { hash })) ?? {}
+      const enrichment = enrichWithFlaggedArtifacts(
+        { block_hash: hash },
+        relatedDocsFor('dero_get_block_header_by_hash'),
+      )
+      return { ...result, ...(enrichment ?? {}) }
+    }),
   )
 
   server.registerTool(
@@ -431,7 +462,12 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     withStructuredErrors('dero_get_transaction', async ({ txs_hashes, decode_as_json }) => {
       const params: Record<string, unknown> = { txs_hashes }
       if (decode_as_json !== undefined) params.decode_as_json = decode_as_json
-      return rpc('DERO.GetTransaction', params)
+      const result = (await rpc<Record<string, unknown>>('DERO.GetTransaction', params)) ?? {}
+      const enrichment = enrichWithFlaggedArtifacts(
+        { tx_hashes: txs_hashes },
+        relatedDocsFor('dero_get_transaction'),
+      )
+      return { ...result, ...(enrichment ?? {}) }
     }),
   )
 
@@ -555,6 +591,56 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       if (block !== undefined) params.block = block
       if (miner) params.miner = miner
       return rpc('DERO.GetBlockTemplate', params)
+    }),
+  )
+
+  server.registerTool(
+    'dero_decode_proof_string',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_decode_proof_string,
+      inputSchema: {
+        proof_string: z
+          .string()
+          .min(8)
+          .describe(
+            'Full bech32 string with HRP, e.g. "deroproof1qyy…" or "dero1abc…". Whitespace is trimmed.',
+          ),
+      },
+    }),
+    withStructuredErrors('dero_decode_proof_string', async ({ proof_string }) => {
+      let decoded: ReturnType<typeof decodeDeroBech32>
+      try {
+        decoded = decodeDeroBech32(proof_string)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`INVALID_BECH32: ${message}`)
+      }
+      const decodedJson = {
+        hrp: decoded.hrp,
+        mainnet: decoded.mainnet,
+        is_proof: decoded.is_proof,
+        public_key_hex: decoded.public_key_hex,
+        arguments: decoded.arguments,
+      }
+      const value_interpretation =
+        decoded.value_transfer_uint64 !== undefined
+          ? interpretValueTransfer(decoded.value_transfer_uint64)
+          : undefined
+      // Try flagged-artifact enrichment first; fall back to the generic
+      // per-tool related_docs when the input is not a known adversarial string.
+      const enrichment = enrichWithFlaggedArtifacts(
+        { proof_string },
+        relatedDocsFor('dero_decode_proof_string'),
+      )
+      const baseline = enrichment
+        ? enrichment
+        : { related_docs: relatedDocsFor('dero_decode_proof_string') ?? [] }
+      return {
+        decoded: decodedJson,
+        ...(value_interpretation ? { value_interpretation } : {}),
+        ...(baseline.related_docs?.length ? { related_docs: baseline.related_docs } : {}),
+        ...(enrichment ? { context_note: enrichment.context_note } : {}),
+      }
     }),
   )
 
@@ -688,6 +774,17 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     }),
     withStructuredErrors('trace_transaction_with_context', async (args) =>
       traceTransactionWithContext(rpc, args),
+    ),
+  )
+
+  server.registerTool(
+    'audit_chain_artifact_claim',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.audit_chain_artifact_claim,
+      inputSchema: auditChainArtifactClaimInputSchema,
+    }),
+    withStructuredErrors('audit_chain_artifact_claim', async (args) =>
+      auditChainArtifactClaim(rpc, args ?? {}),
     ),
   )
 

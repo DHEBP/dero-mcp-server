@@ -148,6 +148,30 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: "DVM-BASIC: DERO's Smart Contract Language Guide | DERO Blockchain",
     },
   ],
+  dero_decode_proof_string: [
+    {
+      product: 'derod',
+      slug: 'integrity/payload-vs-transaction-proofs',
+      title: 'Proof Types Explained: Transaction vs. Payload Proofs | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'integrity/negative-transfer-protection',
+      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+    },
+  ],
+  audit_chain_artifact_claim: [
+    {
+      product: 'derod',
+      slug: 'integrity/payload-vs-transaction-proofs',
+      title: 'Proof Types Explained: Transaction vs. Payload Proofs | DERO Blockchain',
+    },
+    {
+      product: 'derod',
+      slug: 'integrity/negative-transfer-protection',
+      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+    },
+  ],
   // Composite #2 (`explain_smart_contract`) curates all four DVM docs so its
   // heuristic can elevate whichever page best matches the detected surface
   // (token / registry / minimal / generic). The composite re-orders this
@@ -191,4 +215,178 @@ export function relatedDocsFor(toolName: string): DeroCitation[] | undefined {
   const entries = RELATED_DOCS_BY_TOOL[toolName]
   if (!entries || entries.length === 0) return undefined
   return entries.map((entry) => buildDeroCitation(entry.product, entry.slug, entry.title))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flagged chain artifacts — adversarial-context enrichment
+//
+// Some on-chain artifacts (specific blocks, TX hashes, proof strings) appear in
+// publicly circulated false claims about DERO. When any tool returns data
+// keyed on such an artifact, we silently attach a `context_note` and a curated
+// `related_docs` list pointing at the integrity rebuttal pages.
+//
+// Design contract:
+//   - Match purely on tool inputs (deterministic; no false positives from
+//     downstream RPC payload changes).
+//   - Same DeroCitation shape so composites can join on `page_id` like any
+//     other related doc entry.
+//   - Registry is hand-curated; CI guard (`scripts/check-citations.ts`)
+//     validates every slug + title against the bundled docs index.
+//   - Adding an entry: pick the most rebuttal-relevant pages from the
+//     bundled index; keep `context_note` factual (no rhetoric) since hostile
+//     readers will quote it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FlaggedArtifactMatcher =
+  | { kind: 'topoheight'; value: number }
+  | { kind: 'block_hash'; value: string }
+  | { kind: 'tx_hash'; value: string }
+  | { kind: 'proof_string'; value: string }
+
+export type FlaggedArtifact = {
+  /** Stable human-readable id for logs and downstream tooling. */
+  id: string
+  matchers: readonly FlaggedArtifactMatcher[]
+  /** Short factual statement appended to responses that match this artifact. */
+  context_note: string
+  related_docs: readonly RelatedDocsEntry[]
+}
+
+export const FLAGGED_CHAIN_ARTIFACTS: readonly FlaggedArtifact[] = [
+  {
+    id: '2022-inflation-claim',
+    matchers: [
+      { kind: 'topoheight', value: 1_081_893 },
+      { kind: 'block_hash', value: 'b6bd914f7fb1c79788fe8676c277e58e7bb5a904317afb096b1d2793af9aed13' },
+      { kind: 'tx_hash', value: '5bbe1b7eecfe3447cb045b1197a07a214b456968eda8a3d5a90f5fae9ce57e55' },
+      {
+        kind: 'proof_string',
+        value:
+          'deroproof1qyyj0cgu3htmkumr79sgca75vwsx8kx7zkrjg0nfez46w36qyx4kwq9zvfyyskpqvdpcfhkhk4m7y9d77ehyj7yhnnrv9z0tjr9m5fqe2yx9t27dwtdxy4j4r0llll7vcmaxwjcl8jzfq',
+      },
+    ],
+    context_note:
+      'This block/transaction/proof string appears in publicly circulated 2022 inflation claims. The cited payload proof is a user-supplied display object — not a consensus record — and the alleged negative-transfer mechanism cannot produce a verifying range proof. See related_docs for the technical rebuttal.',
+    // TODO: once `integrity/inflation-claim` ships and the bundled docs index
+    // refreshes, prepend it as the primary citation:
+    //   { product: 'derod', slug: 'integrity/inflation-claim', title: '<exact bundled title>' }
+    related_docs: [
+      {
+        product: 'derod',
+        slug: 'integrity/negative-transfer-protection',
+        title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+      },
+      {
+        product: 'derod',
+        slug: 'integrity/payload-vs-transaction-proofs',
+        title: 'Proof Types Explained: Transaction vs. Payload Proofs | DERO Blockchain',
+      },
+      {
+        product: 'derod',
+        slug: 'integrity/ring-member-behavior',
+        title: 'Ring Member Behavior: Understanding Decoy Participation | DERO Blockchain',
+      },
+    ],
+  },
+] as const
+
+/**
+ * Input shape passed by tool handlers. Optional fields let each tool pass
+ * only the inputs it actually has (e.g. dero_get_block_header_by_topo_height
+ * only knows about topoheight; dero_get_transaction only knows about
+ * tx_hashes). String comparisons are case-insensitive on hex values.
+ */
+export type FlaggedArtifactQuery = {
+  topoheight?: number
+  block_hash?: string
+  tx_hash?: string
+  tx_hashes?: readonly string[]
+  proof_string?: string
+}
+
+/** Normalize a hex value for case-insensitive comparison. Non-hex strings pass through unchanged. */
+function normalizeHex(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+/**
+ * Return all flagged artifacts whose matchers fire against the given inputs.
+ *
+ * Multiple matches return multiple artifacts (rare today; would happen if the
+ * same TX got cited in multiple false claims). Tool handlers should merge all
+ * matches into a single response.
+ */
+export function flaggedArtifactsForInput(
+  query: FlaggedArtifactQuery,
+): FlaggedArtifact[] {
+  const matches: FlaggedArtifact[] = []
+
+  const queryBlockHash = query.block_hash ? normalizeHex(query.block_hash) : undefined
+  const queryTxHashes: string[] = []
+  if (query.tx_hash) queryTxHashes.push(normalizeHex(query.tx_hash))
+  if (query.tx_hashes) for (const h of query.tx_hashes) queryTxHashes.push(normalizeHex(h))
+  const queryProof = query.proof_string?.trim()
+
+  for (const artifact of FLAGGED_CHAIN_ARTIFACTS) {
+    const hit = artifact.matchers.some((m) => {
+      switch (m.kind) {
+        case 'topoheight':
+          return query.topoheight !== undefined && query.topoheight === m.value
+        case 'block_hash':
+          return queryBlockHash !== undefined && queryBlockHash === normalizeHex(m.value)
+        case 'tx_hash':
+          return queryTxHashes.includes(normalizeHex(m.value))
+        case 'proof_string':
+          return queryProof !== undefined && queryProof === m.value
+      }
+    })
+    if (hit) matches.push(artifact)
+  }
+  return matches
+}
+
+/**
+ * Build the response-side enrichment for matched artifacts: a context note
+ * (joined if multiple match) plus prepended citations for each match.
+ *
+ * `baseRelatedDocs` is the tool's existing relatedDocsFor() output (or undefined).
+ * Returns `undefined` when no artifacts match — caller should noop in that case.
+ *
+ * Usage in a tool handler:
+ *   const enrichment = enrichWithFlaggedArtifacts(
+ *     { topoheight: args.topoheight },
+ *     relatedDocsFor('dero_get_block_header_by_topo_height'),
+ *   )
+ *   return { ...result, ...(enrichment ?? {}) }
+ */
+export function enrichWithFlaggedArtifacts(
+  query: FlaggedArtifactQuery,
+  baseRelatedDocs: DeroCitation[] | undefined,
+): { context_note: string; related_docs: DeroCitation[] } | undefined {
+  const matches = flaggedArtifactsForInput(query)
+  if (matches.length === 0) return undefined
+
+  const context_note = matches.map((a) => a.context_note).join('\n\n')
+
+  // Prepend artifact citations (de-duped against baseline by canonical_url).
+  const seen = new Set<string>()
+  const merged: DeroCitation[] = []
+  for (const artifact of matches) {
+    for (const entry of artifact.related_docs) {
+      const cite = buildDeroCitation(entry.product, entry.slug, entry.title)
+      if (!seen.has(cite.canonical_url)) {
+        merged.push(cite)
+        seen.add(cite.canonical_url)
+      }
+    }
+  }
+  if (baseRelatedDocs) {
+    for (const cite of baseRelatedDocs) {
+      if (!seen.has(cite.canonical_url)) {
+        merged.push(cite)
+        seen.add(cite.canonical_url)
+      }
+    }
+  }
+  return { context_note, related_docs: merged }
 }
