@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-05-27T21:52:28.340Z",
+  "generated_at": "2026-05-27T22:26:03.505Z",
   "page_count": 146,
   "pages": [
     {
@@ -1653,7 +1653,7 @@
       "slug": "",
       "title": "DeroPay & DeroAuth Documentation — Payments and Authentication for DERO",
       "description": "Accept DERO payments with invoices, escrow, and webhooks. Authenticate users with privacy-preserving wallet signatures. TypeScript SDKs for the DERO ecosystem.",
-      "canonicalUrl": "https://deropay.derod.org/",
+      "canonicalUrl": "https://deropay.derod.org/.md",
       "sourcePath": "deropay-main/pages/index.mdx",
       "headings": [
         "DeroPay & DeroAuth",
@@ -1672,7 +1672,7 @@
       "slug": "dero-auth/api-reference",
       "title": "DeroAuth API Reference",
       "description": "Complete API reference for the dero-auth package — all exports, types, and interfaces.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/api-reference",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/api-reference.md",
       "sourcePath": "deropay-main/pages/dero-auth/api-reference.mdx",
       "headings": [
         "API Reference",
@@ -1698,7 +1698,7 @@
       "slug": "dero-auth/auth-flow",
       "title": "Authentication Flow — Challenge, Sign, Verify",
       "description": "Detailed walkthrough of the DeroAuth authentication flow: challenge generation, wallet signing, and server-side verification.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/auth-flow",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/auth-flow.md",
       "sourcePath": "deropay-main/pages/dero-auth/auth-flow.mdx",
       "headings": [
         "Authentication Flow",
@@ -1718,7 +1718,7 @@
       "slug": "dero-auth/cryptography",
       "title": "Cryptography — Schnorr Signatures on BN256",
       "description": "How DeroAuth verifies DERO wallet signatures: Schnorr on BN256, custom generator point, Keccak-256 hashing, and Bech32 address encoding.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/cryptography",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/cryptography.md",
       "sourcePath": "deropay-main/pages/dero-auth/cryptography.mdx",
       "headings": [
         "Cryptography",
@@ -1739,7 +1739,7 @@
       "slug": "dero-auth/nextjs",
       "title": "Next.js Integration — DeroAuth Route Handlers & Middleware",
       "description": "Set up DeroAuth in a Next.js 14/15 App Router project with API route handlers and auth middleware.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/nextjs",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/nextjs.md",
       "sourcePath": "deropay-main/pages/dero-auth/nextjs.mdx",
       "headings": [
         "Next.js Integration",
@@ -1760,7 +1760,7 @@
       "slug": "dero-auth/overview",
       "title": "DeroAuth Overview — Wallet-Based Authentication for DERO",
       "description": "DeroAuth enables 'Sign in with your DERO wallet' — privacy-preserving authentication using Schnorr signatures on BN256.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/overview",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/overview.md",
       "sourcePath": "deropay-main/pages/dero-auth/overview.mdx",
       "headings": [
         "DeroAuth Overview",
@@ -1779,7 +1779,7 @@
       "slug": "dero-auth/quick-start",
       "title": "DeroAuth Quick Start — Add Wallet Login",
       "description": "Add DERO wallet-based authentication to your app in minutes with dero-auth.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/quick-start",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/quick-start.md",
       "sourcePath": "deropay-main/pages/dero-auth/quick-start.mdx",
       "headings": [
         "Quick Start",
@@ -1800,7 +1800,7 @@
       "slug": "dero-auth/react",
       "title": "React Components — DeroAuth UI",
       "description": "Drop-in React components for DeroAuth: SignInWithDero button, DeroAuthProvider, and useDeroAuth hook.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/react",
+      "canonicalUrl": "https://pay.derod.org/dero-auth/react.md",
       "sourcePath": "deropay-main/pages/dero-auth/react.mdx",
       "headings": [
         "React Components",
@@ -1817,7 +1817,7 @@
       "slug": "dero-pay/api-reference",
       "title": "DeroPay API Reference",
       "description": "Complete API reference for the dero-pay package — all exports, types, and interfaces.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/api-reference",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/api-reference.md",
       "sourcePath": "deropay-main/pages/dero-pay/api-reference.mdx",
       "headings": [
         "API Reference",
@@ -1839,7 +1839,7 @@
       "slug": "dero-pay/invoice-engine",
       "title": "Invoice Engine — Core Payment Orchestrator",
       "description": "The InvoiceEngine is the central component of DeroPay, coordinating invoice creation, payment monitoring, storage, and webhook dispatch.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/invoice-engine",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/invoice-engine.md",
       "sourcePath": "deropay-main/pages/dero-pay/invoice-engine.mdx",
       "headings": [
         "Invoice Engine",
@@ -1857,7 +1857,7 @@
       "slug": "dero-pay/nextjs",
       "title": "Next.js Integration — DeroPay Route Handlers & Middleware",
       "description": "Set up DeroPay in a Next.js 14/15 App Router project with ready-made API handlers and middleware.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/nextjs",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/nextjs.md",
       "sourcePath": "deropay-main/pages/dero-pay/nextjs.mdx",
       "headings": [
         "Next.js Integration",
@@ -1879,7 +1879,7 @@
       "slug": "dero-pay/overview",
       "title": "DeroPay Overview — Payment Processing for DERO",
       "description": "DeroPay is a TypeScript SDK for accepting DERO payments with invoices, payment monitoring, webhooks, escrow, and a merchant dashboard.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/overview",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/overview.md",
       "sourcePath": "deropay-main/pages/dero-pay/overview.mdx",
       "headings": [
         "DeroPay Overview",
@@ -1898,7 +1898,7 @@
       "slug": "dero-pay/payment-monitor",
       "title": "Payment Monitor — Transaction Polling & Confirmation Tracking",
       "description": "The PaymentMonitor polls the DERO wallet for incoming transactions and tracks confirmations until invoices are complete.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/payment-monitor",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/payment-monitor.md",
       "sourcePath": "deropay-main/pages/dero-pay/payment-monitor.mdx",
       "headings": [
         "Payment Monitor",
@@ -1915,7 +1915,7 @@
       "slug": "dero-pay/quick-start",
       "title": "DeroPay Quick Start — Accept DERO Payments",
       "description": "Get started with DeroPay in under 5 minutes. Create invoices, monitor payments, and handle webhooks.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/quick-start",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/quick-start.md",
       "sourcePath": "deropay-main/pages/dero-pay/quick-start.mdx",
       "headings": [
         "Quick Start",
@@ -1936,7 +1936,7 @@
       "slug": "dero-pay/react",
       "title": "React Components — Payment UI",
       "description": "Drop-in React components for DeroPay: PayWithDero button, InvoiceView, PaymentStatus, and DeroPayProvider.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/react",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/react.md",
       "sourcePath": "deropay-main/pages/dero-pay/react.mdx",
       "headings": [
         "React Components",
@@ -1956,7 +1956,7 @@
       "slug": "dero-pay/rpc",
       "title": "RPC Clients — DERO Wallet & Daemon Communication",
       "description": "DeroPay provides typed JSON-RPC clients for the DERO wallet and daemon, handling all low-level communication.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/rpc",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/rpc.md",
       "sourcePath": "deropay-main/pages/dero-pay/rpc.mdx",
       "headings": [
         "RPC Clients",
@@ -1975,7 +1975,7 @@
       "slug": "dero-pay/storage",
       "title": "Storage Backends — Invoice Persistence",
       "description": "DeroPay supports pluggable storage backends. Use in-memory for development and SQLite for production, or implement your own.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/storage",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/storage.md",
       "sourcePath": "deropay-main/pages/dero-pay/storage.mdx",
       "headings": [
         "Storage Backends",
@@ -1990,7 +1990,7 @@
       "slug": "dero-pay/webhooks",
       "title": "Webhooks — HMAC-Signed Payment Notifications",
       "description": "DeroPay sends HMAC-SHA256 signed webhooks on payment state changes. Learn how to configure and verify them.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/webhooks",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/webhooks.md",
       "sourcePath": "deropay-main/pages/dero-pay/webhooks.mdx",
       "headings": [
         "Webhooks",
@@ -2008,7 +2008,7 @@
       "slug": "dero-pay/x402",
       "title": "x402 Payment Guard — DERO-Native HTTP 402 for APIs",
       "description": "Protect API routes with HTTP 402 Payment Required. Clients pay DERO, receive a signed receipt, and retry. No accounts, no API keys, no subscriptions.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/x402",
+      "canonicalUrl": "https://pay.derod.org/dero-pay/x402.md",
       "sourcePath": "deropay-main/pages/dero-pay/x402.mdx",
       "headings": [
         "x402 Payment Guard",
@@ -2039,7 +2039,7 @@
       "slug": "escrow/overview",
       "title": "Escrow System — Trustless On-Chain Payments",
       "description": "DeroPay includes a full escrow system with an on-chain smart contract and TypeScript SDK for trustless buyer-seller transactions.",
-      "canonicalUrl": "https://pay.derod.org/escrow/overview",
+      "canonicalUrl": "https://pay.derod.org/escrow/overview.md",
       "sourcePath": "deropay-main/pages/escrow/overview.mdx",
       "headings": [
         "Escrow System",
@@ -2058,7 +2058,7 @@
       "slug": "escrow/sdk",
       "title": "Escrow TypeScript SDK — EscrowContract & EscrowManager",
       "description": "Use the dero-pay/escrow module to create, fund, release, refund, and arbitrate escrow transactions programmatically.",
-      "canonicalUrl": "https://pay.derod.org/escrow/sdk",
+      "canonicalUrl": "https://pay.derod.org/escrow/sdk.md",
       "sourcePath": "deropay-main/pages/escrow/sdk.mdx",
       "headings": [
         "Escrow TypeScript SDK",
@@ -2074,7 +2074,7 @@
       "slug": "escrow/smart-contract",
       "title": "Escrow Smart Contract — On-Chain DERO Contract",
       "description": "The escrow.bas smart contract holds DERO funds in escrow with support for deposits, releases, refunds, disputes, and arbitration.",
-      "canonicalUrl": "https://pay.derod.org/escrow/smart-contract",
+      "canonicalUrl": "https://pay.derod.org/escrow/smart-contract.md",
       "sourcePath": "deropay-main/pages/escrow/smart-contract.mdx",
       "headings": [
         "Escrow Smart Contract",
@@ -2092,7 +2092,7 @@
       "slug": "guides/embeddable-widget",
       "title": "Guide: Embeddable Payment Widget",
       "description": "Add a 'Pay with DERO' button to any website with a single script tag. No framework required.",
-      "canonicalUrl": "https://pay.derod.org/guides/embeddable-widget",
+      "canonicalUrl": "https://pay.derod.org/guides/embeddable-widget.md",
       "sourcePath": "deropay-main/pages/guides/embeddable-widget.mdx",
       "headings": [
         "Embeddable Payment Widget",
@@ -2116,7 +2116,7 @@
       "slug": "guides/gateway-server",
       "title": "Guide: DeroPay Gateway Server",
       "description": "Deploy the standalone DeroPay gateway server — the foundation for all ecommerce plugins, widgets, and payment links.",
-      "canonicalUrl": "https://pay.derod.org/guides/gateway-server",
+      "canonicalUrl": "https://pay.derod.org/guides/gateway-server.md",
       "sourcePath": "deropay-main/pages/guides/gateway-server.mdx",
       "headings": [
         "DeroPay Gateway Server",
@@ -2140,7 +2140,7 @@
       "slug": "guides/medusa-plugin",
       "title": "Guide: Medusa.js Payment Plugin",
       "description": "Accept DERO payments in your Medusa.js v2 store with the DeroPay payment provider plugin.",
-      "canonicalUrl": "https://pay.derod.org/guides/medusa-plugin",
+      "canonicalUrl": "https://pay.derod.org/guides/medusa-plugin.md",
       "sourcePath": "deropay-main/pages/guides/medusa-plugin.mdx",
       "headings": [
         "Medusa.js Payment Plugin",
@@ -2166,7 +2166,7 @@
       "slug": "guides/merchant-dashboard",
       "title": "Merchant Dashboard — Self-Hosted Admin UI",
       "description": "Set up and run the DeroPay merchant dashboard for invoice management, payment history, and wallet status.",
-      "canonicalUrl": "https://pay.derod.org/guides/merchant-dashboard",
+      "canonicalUrl": "https://pay.derod.org/guides/merchant-dashboard.md",
       "sourcePath": "deropay-main/pages/guides/merchant-dashboard.mdx",
       "headings": [
         "Merchant Dashboard",
@@ -2186,7 +2186,7 @@
       "slug": "guides/nextjs-auth",
       "title": "Guide: DERO Wallet Auth in Next.js",
       "description": "End-to-end guide for adding DERO wallet authentication to a Next.js 15 App Router project.",
-      "canonicalUrl": "https://pay.derod.org/guides/nextjs-auth",
+      "canonicalUrl": "https://pay.derod.org/guides/nextjs-auth.md",
       "sourcePath": "deropay-main/pages/guides/nextjs-auth.mdx",
       "headings": [
         "DERO Wallet Auth in Next.js",
@@ -2209,7 +2209,7 @@
       "slug": "guides/nextjs-payments",
       "title": "Guide: Accept DERO Payments in Next.js",
       "description": "End-to-end guide for integrating DeroPay into a Next.js 15 App Router project.",
-      "canonicalUrl": "https://pay.derod.org/guides/nextjs-payments",
+      "canonicalUrl": "https://pay.derod.org/guides/nextjs-payments.md",
       "sourcePath": "deropay-main/pages/guides/nextjs-payments.mdx",
       "headings": [
         "Accept DERO Payments in Next.js",
@@ -2230,7 +2230,7 @@
       "slug": "guides/payment-links",
       "title": "Guide: Payment Links & Hosted Checkout",
       "description": "Create shareable payment links for DERO — no website needed. Works via email, social media, QR posters, or messaging.",
-      "canonicalUrl": "https://pay.derod.org/guides/payment-links",
+      "canonicalUrl": "https://pay.derod.org/guides/payment-links.md",
       "sourcePath": "deropay-main/pages/guides/payment-links.mdx",
       "headings": [
         "Payment Links & Hosted Checkout",
@@ -2252,7 +2252,7 @@
       "slug": "guides/prerequisites",
       "title": "Prerequisites — DERO Wallet & Environment Setup",
       "description": "Set up a DERO wallet and development environment for DeroPay and DeroAuth.",
-      "canonicalUrl": "https://pay.derod.org/guides/prerequisites",
+      "canonicalUrl": "https://pay.derod.org/guides/prerequisites.md",
       "sourcePath": "deropay-main/pages/guides/prerequisites.mdx",
       "headings": [
         "Prerequisites",
@@ -2273,7 +2273,7 @@
       "slug": "guides/woocommerce",
       "title": "Guide: WooCommerce Plugin",
       "description": "Accept DERO payments on your WordPress/WooCommerce store with the DeroPay payment gateway plugin.",
-      "canonicalUrl": "https://pay.derod.org/guides/woocommerce",
+      "canonicalUrl": "https://pay.derod.org/guides/woocommerce.md",
       "sourcePath": "deropay-main/pages/guides/woocommerce.mdx",
       "headings": [
         "WooCommerce Plugin",
@@ -2294,7 +2294,7 @@
       "slug": "payment-router/escrow-vs-router",
       "title": "Escrow vs. Payment Router — Which Smart Contract to Use",
       "description": "A comparison of DeroPay's two smart contracts: escrow for buyer-protected transactions and payment router for instant merchant payments.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/escrow-vs-router",
+      "canonicalUrl": "https://pay.derod.org/payment-router/escrow-vs-router.md",
       "sourcePath": "deropay-main/pages/payment-router/escrow-vs-router.mdx",
       "headings": [
         "Escrow vs. Payment Router",
@@ -2312,7 +2312,7 @@
       "slug": "payment-router/overview",
       "title": "Payment Router — Instant On-Chain Payments",
       "description": "A reusable per-merchant smart contract for fast, single-transaction DERO payments with optional fee splitting.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/overview",
+      "canonicalUrl": "https://pay.derod.org/payment-router/overview.md",
       "sourcePath": "deropay-main/pages/payment-router/overview.mdx",
       "headings": [
         "Payment Router",
@@ -2331,7 +2331,7 @@
       "slug": "payment-router/sdk",
       "title": "Payment Router TypeScript SDK — RouterContract & RouterManager",
       "description": "Use the dero-pay/router module to deploy payment routers, send payments, and query on-chain state programmatically.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/sdk",
+      "canonicalUrl": "https://pay.derod.org/payment-router/sdk.md",
       "sourcePath": "deropay-main/pages/payment-router/sdk.mdx",
       "headings": [
         "Payment Router TypeScript SDK",
@@ -2350,7 +2350,7 @@
       "slug": "payment-router/smart-contract",
       "title": "Payment Router Smart Contract — On-Chain DERO Contract",
       "description": "The payment-router.bas smart contract handles instant payment splitting between a merchant and an optional fee recipient.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/smart-contract",
+      "canonicalUrl": "https://pay.derod.org/payment-router/smart-contract.md",
       "sourcePath": "deropay-main/pages/payment-router/smart-contract.mdx",
       "headings": [
         "Payment Router Smart Contract",
@@ -2370,7 +2370,7 @@
       "slug": "",
       "title": "Hologram: DERO Decentralized Web Browser",
       "description": "Hologram documentation. Browse decentralized applications, manage wallets, support developers, and explore the blockchain - all in one native desktop application.",
-      "canonicalUrl": "https://hologram.derod.org/",
+      "canonicalUrl": "https://hologram.derod.org/.md",
       "sourcePath": "hologram-main/pages/index.mdx",
       "headings": [
         "HOLOGRAM",
@@ -2388,7 +2388,7 @@
       "slug": "api-reference",
       "title": "Full API Reference",
       "description": "Complete reference of all 300+ Hologram API methods across 30 functional areas.",
-      "canonicalUrl": "https://hologram.derod.org/api-reference",
+      "canonicalUrl": "https://hologram.derod.org/api-reference.md",
       "sourcePath": "hologram-main/pages/api-reference.mdx",
       "headings": [
         "Full API Reference",
@@ -2454,7 +2454,7 @@
       "slug": "browser",
       "title": "TELA Browser",
       "description": "Browse decentralized applications stored entirely on the DERO blockchain with Hologram's TELA Browser engine.",
-      "canonicalUrl": "https://hologram.derod.org/browser",
+      "canonicalUrl": "https://hologram.derod.org/browser.md",
       "sourcePath": "hologram-main/pages/browser.mdx",
       "headings": [
         "TELA Browser",
@@ -2503,7 +2503,7 @@
       "slug": "dero-auth",
       "title": "Sign In with DERO",
       "description": "HOLOGRAM-exclusive: authenticate on any HTTPS website using your DERO wallet address — no extensions, no passwords, no seed phrases in the browser.",
-      "canonicalUrl": "https://hologram.derod.org/dero-auth",
+      "canonicalUrl": "https://hologram.derod.org/dero-auth.md",
       "sourcePath": "hologram-main/pages/dero-auth.mdx",
       "headings": [
         "Sign In with DERO",
@@ -2525,7 +2525,7 @@
       "slug": "developer-support",
       "title": "Developer Support",
       "description": "Support TELA app developers through the EPOCH passive hashing system - no ads, no data collection.",
-      "canonicalUrl": "https://hologram.derod.org/developer-support",
+      "canonicalUrl": "https://hologram.derod.org/developer-support.md",
       "sourcePath": "hologram-main/pages/developer-support.mdx",
       "headings": [
         "Developer Support",
@@ -2560,7 +2560,7 @@
       "slug": "explorer",
       "title": "Block Explorer",
       "description": "Explore the DERO blockchain - blocks, transactions, smart contracts, and real-time analytics.",
-      "canonicalUrl": "https://hologram.derod.org/explorer",
+      "canonicalUrl": "https://hologram.derod.org/explorer.md",
       "sourcePath": "hologram-main/pages/explorer.mdx",
       "headings": [
         "Block Explorer",
@@ -2617,7 +2617,7 @@
       "slug": "installation",
       "title": "Installation",
       "description": "Download and install Hologram on macOS, Linux, or Windows.",
-      "canonicalUrl": "https://hologram.derod.org/installation",
+      "canonicalUrl": "https://hologram.derod.org/installation.md",
       "sourcePath": "hologram-main/pages/installation.mdx",
       "headings": [
         "Installation",
@@ -2665,7 +2665,7 @@
       "slug": "local-dev-server",
       "title": "Local Dev Server",
       "description": "Hot-reload development of TELA applications directly within Hologram.",
-      "canonicalUrl": "https://hologram.derod.org/local-dev-server",
+      "canonicalUrl": "https://hologram.derod.org/local-dev-server.md",
       "sourcePath": "hologram-main/pages/local-dev-server.mdx",
       "headings": [
         "Local Dev Server",
@@ -2704,7 +2704,7 @@
       "slug": "offline-first",
       "title": "Offline-First Browsing",
       "description": "Clone, cache, and diff TELA apps locally for instant access without network dependency.",
-      "canonicalUrl": "https://hologram.derod.org/offline-first",
+      "canonicalUrl": "https://hologram.derod.org/offline-first.md",
       "sourcePath": "hologram-main/pages/offline-first.mdx",
       "headings": [
         "Offline-First Browsing",
@@ -2745,7 +2745,7 @@
       "slug": "overview",
       "title": "Overview",
       "description": "Understanding Hologram's architecture, components, and core capabilities.",
-      "canonicalUrl": "https://hologram.derod.org/overview",
+      "canonicalUrl": "https://hologram.derod.org/overview.md",
       "sourcePath": "hologram-main/pages/overview.mdx",
       "headings": [
         "Overview",
@@ -2770,7 +2770,7 @@
       "slug": "proof-validation",
       "title": "Proof Validation",
       "description": "Security enhancement for validating payload proofs and blocking fake/fabricated proofs with impossible amounts.",
-      "canonicalUrl": "https://hologram.derod.org/proof-validation",
+      "canonicalUrl": "https://hologram.derod.org/proof-validation.md",
       "sourcePath": "hologram-main/pages/proof-validation.mdx",
       "headings": [
         "Proof Validation",
@@ -2800,7 +2800,7 @@
       "slug": "quick-start",
       "title": "Quick Start",
       "description": "Get started with Hologram in minutes - connect to the network, create a wallet, and browse your first dApp.",
-      "canonicalUrl": "https://hologram.derod.org/quick-start",
+      "canonicalUrl": "https://hologram.derod.org/quick-start.md",
       "sourcePath": "hologram-main/pages/quick-start.mdx",
       "headings": [
         "Quick Start",
@@ -2836,7 +2836,7 @@
       "slug": "security",
       "title": "Security Features",
       "description": "Understanding Hologram's security model, sandboxing, and privacy protections.",
-      "canonicalUrl": "https://hologram.derod.org/security",
+      "canonicalUrl": "https://hologram.derod.org/security.md",
       "sourcePath": "hologram-main/pages/security.mdx",
       "headings": [
         "Security Features",
@@ -2880,7 +2880,7 @@
       "slug": "settings",
       "title": "Settings Reference",
       "description": "Complete guide to Hologram's settings - node management, Gnomon, privacy, console, and more.",
-      "canonicalUrl": "https://hologram.derod.org/settings",
+      "canonicalUrl": "https://hologram.derod.org/settings.md",
       "sourcePath": "hologram-main/pages/settings.mdx",
       "headings": [
         "Settings Reference",
@@ -2922,7 +2922,7 @@
       "slug": "simulator",
       "title": "Simulator Mode",
       "description": "One-click integrated development environment for testing TELA applications and smart contracts.",
-      "canonicalUrl": "https://hologram.derod.org/simulator",
+      "canonicalUrl": "https://hologram.derod.org/simulator.md",
       "sourcePath": "hologram-main/pages/simulator.mdx",
       "headings": [
         "Simulator Mode",
@@ -2958,7 +2958,7 @@
       "slug": "studio",
       "title": "Studio",
       "description": "Create, deploy, and manage TELA applications with Hologram's integrated development studio.",
-      "canonicalUrl": "https://hologram.derod.org/studio",
+      "canonicalUrl": "https://hologram.derod.org/studio.md",
       "sourcePath": "hologram-main/pages/studio.mdx",
       "headings": [
         "Studio",
@@ -3014,7 +3014,7 @@
       "slug": "telahost-api",
       "title": "telaHost Bridge API",
       "description": "JavaScript API reference for TELA app developers. Connect your dApp to the DERO blockchain and wallet through Hologram.",
-      "canonicalUrl": "https://hologram.derod.org/telahost-api",
+      "canonicalUrl": "https://hologram.derod.org/telahost-api.md",
       "sourcePath": "hologram-main/pages/telahost-api.mdx",
       "headings": [
         "telaHost Bridge API",
@@ -3053,7 +3053,7 @@
       "slug": "wallet",
       "title": "Wallet Management",
       "description": "Complete DERO wallet management in Hologram - create, restore, send, receive, and track transactions.",
-      "canonicalUrl": "https://hologram.derod.org/wallet",
+      "canonicalUrl": "https://hologram.derod.org/wallet.md",
       "sourcePath": "hologram-main/pages/wallet.mdx",
       "headings": [
         "Wallet Management",
@@ -3131,7 +3131,7 @@
       "slug": "",
       "title": "TELA: Private Web3 Platform Documentation | Decentralized Applications on DERO",
       "description": "TELA documentation. Build private web applications on DERO blockchain with complete privacy and decentralized infrastructure. Learn XSWD protocol and deploy censorship-resistant apps.",
-      "canonicalUrl": "https://tela.derod.org/",
+      "canonicalUrl": "https://tela.derod.org/.md",
       "sourcePath": "tela-main/pages/index.mdx",
       "headings": [
         "Welcome to TELA Platform",
@@ -3148,7 +3148,7 @@
       "slug": "advanced-features/compression",
       "title": "Compression & Optimization in TELA | Advanced File Compression Techniques",
       "description": "Advanced compression techniques and optimization strategies for TELA applications. Learn Gzip compression, file optimization, and deployment efficiency for blockchain storage.",
-      "canonicalUrl": "https://tela.derod.org/advanced-features/compression",
+      "canonicalUrl": "https://tela.derod.org/advanced-features/compression.md",
       "sourcePath": "tela-main/pages/advanced-features/compression.mdx",
       "headings": [
         "Compression & Optimization",
@@ -3198,7 +3198,7 @@
       "slug": "advanced-features/docshards",
       "title": "DocShards | Large File Handling System for TELA Applications",
       "description": "Complete guide to TELA's DocShards system for handling files larger than blockchain limits. Split, deploy, and reconstruct files exceeding 18KB smart contract size limits.",
-      "canonicalUrl": "https://tela.derod.org/advanced-features/docshards",
+      "canonicalUrl": "https://tela.derod.org/advanced-features/docshards.md",
       "sourcePath": "tela-main/pages/advanced-features/docshards.mdx",
       "headings": [
         "DocShards: Large File Handling",
@@ -3254,7 +3254,7 @@
       "slug": "advanced-features/durl-explained",
       "title": "Understanding dURLs | Decentralized URL Identity & Resolution",
       "description": "Deep dive into TELA dURLs - why they're not unique, how resolution works, SCID vs dURL identity, and recovery strategies when things go wrong.",
-      "canonicalUrl": "https://tela.derod.org/advanced-features/durl-explained",
+      "canonicalUrl": "https://tela.derod.org/advanced-features/durl-explained.md",
       "sourcePath": "tela-main/pages/advanced-features/durl-explained.mdx",
       "headings": [
         "Understanding dURLs",
@@ -3291,7 +3291,7 @@
       "slug": "advanced-features/libraries-overview",
       "title": "TELA Libraries | Building Reusable Decentralized Code Modules",
       "description": "Building reusable, decentralized code libraries on the DERO blockchain. Complete guide to creating, deploying, and sharing blockchain-stored code modules.",
-      "canonicalUrl": "https://tela.derod.org/advanced-features/libraries-overview",
+      "canonicalUrl": "https://tela.derod.org/advanced-features/libraries-overview.md",
       "sourcePath": "tela-main/pages/advanced-features/libraries-overview.mdx",
       "headings": [
         "TELA Libraries: Complete Developer Guide",
@@ -3381,7 +3381,7 @@
       "slug": "advanced-features/tela-mods",
       "title": "TELA-MOD-1 | Extending INDEX Contracts with Modular Functionality",
       "description": "Complete guide to TELA-MOD-1 modules - extend INDEX smart contracts with variable storage, transfers, and custom functionality. Includes all MOD variants, API examples, and developer guide.",
-      "canonicalUrl": "https://tela.derod.org/advanced-features/tela-mods",
+      "canonicalUrl": "https://tela.derod.org/advanced-features/tela-mods.md",
       "sourcePath": "tela-main/pages/advanced-features/tela-mods.mdx",
       "headings": [
         "TELA-MOD-1: Modular Smart Contract Extensions",
@@ -3450,7 +3450,7 @@
       "slug": "api-reference/complete-api-guide",
       "title": "Complete TELA API Guide",
       "description": "Comprehensive API reference combining DERO RPC, XSWD protocol, Gnomon indexer, and EPOCH mining for TELA development",
-      "canonicalUrl": "https://tela.derod.org/api-reference/complete-api-guide",
+      "canonicalUrl": "https://tela.derod.org/api-reference/complete-api-guide.md",
       "sourcePath": "tela-main/pages/api-reference/complete-api-guide.mdx",
       "headings": [
         "Complete TELA API Guide",
@@ -3494,7 +3494,7 @@
       "slug": "best-practices",
       "title": "Best Practices | Production-Ready TELA Development",
       "description": "Best practices guide for building production-ready TELA applications with size constraints, performance optimization, and DERO integration",
-      "canonicalUrl": "https://tela.derod.org/best-practices",
+      "canonicalUrl": "https://tela.derod.org/best-practices.md",
       "sourcePath": "tela-main/pages/best-practices.mdx",
       "headings": [
         "Best Practices",
@@ -3537,7 +3537,7 @@
       "slug": "demo",
       "title": "Official TELA Demo (app1) | Verified Source Code Reference",
       "description": "Complete source code from tela_tests/app1 - the official TELA demonstration application. Verified working patterns for XSWD connections, API calls, and TELA development.",
-      "canonicalUrl": "https://tela.derod.org/demo",
+      "canonicalUrl": "https://tela.derod.org/demo.md",
       "sourcePath": "tela-main/pages/demo/index.mdx",
       "headings": [
         "Official TELA Demo (app1)",
@@ -3560,7 +3560,7 @@
       "slug": "demo/api-patterns",
       "title": "API Call Patterns | app1 Demo Analysis",
       "description": "Complete analysis of RPC API call patterns from app1 demo. Verified patterns for making DERO blockchain calls through XSWD.",
-      "canonicalUrl": "https://tela.derod.org/demo/api-patterns",
+      "canonicalUrl": "https://tela.derod.org/demo/api-patterns.md",
       "sourcePath": "tela-main/pages/demo/api-patterns.mdx",
       "headings": [
         "API Call Patterns",
@@ -3583,7 +3583,7 @@
       "slug": "demo/application-data",
       "title": "Application Data Handshake | app1 Demo Analysis",
       "description": "Complete analysis of the application data handshake pattern from app1 demo. Learn the exact format for wallet approval and connection establishment.",
-      "canonicalUrl": "https://tela.derod.org/demo/application-data",
+      "canonicalUrl": "https://tela.derod.org/demo/application-data.md",
       "sourcePath": "tela-main/pages/demo/application-data.mdx",
       "headings": [
         "Application Data Handshake",
@@ -3608,7 +3608,7 @@
       "slug": "demo/file-structure",
       "title": "File Structure & Size | app1 Demo Analysis",
       "description": "Complete file structure and size analysis from app1 demo. Learn how to organize TELA applications within 18KB limits.",
-      "canonicalUrl": "https://tela.derod.org/demo/file-structure",
+      "canonicalUrl": "https://tela.derod.org/demo/file-structure.md",
       "sourcePath": "tela-main/pages/demo/file-structure.mdx",
       "headings": [
         "File Structure & Size",
@@ -3631,7 +3631,7 @@
       "slug": "design-reference",
       "title": "TELA Design Reference | UI Components and Patterns for TELA Applications",
       "description": "Quick reference for common UI patterns, components, and styles optimized for TELA applications. Copy-paste ready components with TELA size constraints and modern design.",
-      "canonicalUrl": "https://tela.derod.org/design-reference",
+      "canonicalUrl": "https://tela.derod.org/design-reference.md",
       "sourcePath": "tela-main/pages/design-reference.mdx",
       "headings": [
         "TELA Design Reference",
@@ -3666,7 +3666,7 @@
       "slug": "epoch-mining",
       "title": "EPOCH Mining Complete Guide | DERO Proof-of-Work Mining Through TELA",
       "description": "Proof-of-work mining capabilities for DERO blockchain through TELA applications. Comprehensive guide to EPOCH mining API, session management, and mining dashboard integration.",
-      "canonicalUrl": "https://tela.derod.org/epoch-mining",
+      "canonicalUrl": "https://tela.derod.org/epoch-mining.md",
       "sourcePath": "tela-main/pages/epoch-mining.mdx",
       "headings": [
         "EPOCH Mining - Complete Guide",
@@ -3703,7 +3703,7 @@
       "slug": "error-troubleshooting",
       "title": "TELA Error Troubleshooting Guide | Debug and Fix Common TELA Development Issues",
       "description": "Comprehensive guide to diagnosing and fixing common TELA development and deployment errors. Solutions for XSWD connection issues, deployment failures, file size errors, and network problems.",
-      "canonicalUrl": "https://tela.derod.org/error-troubleshooting",
+      "canonicalUrl": "https://tela.derod.org/error-troubleshooting.md",
       "sourcePath": "tela-main/pages/error-troubleshooting.mdx",
       "headings": [
         "Error Troubleshooting Guide",
@@ -3793,7 +3793,7 @@
       "slug": "go-package-reference/api-reference",
       "title": "TELA Go Package API Reference | Complete Function Documentation",
       "description": "Complete TELA Go package API reference for content serving, smart contracts, and blockchain operations. Comprehensive documentation for github.com/civilware/tela package.",
-      "canonicalUrl": "https://tela.derod.org/go-package-reference/api-reference",
+      "canonicalUrl": "https://tela.derod.org/go-package-reference/api-reference.md",
       "sourcePath": "tela-main/pages/go-package-reference/api-reference.mdx",
       "headings": [
         "TELA Go Package API Reference",
@@ -3855,7 +3855,7 @@
       "slug": "go-package-reference/examples",
       "title": "TELA API Examples | Real-World Go Package Usage Patterns",
       "description": "Comprehensive examples demonstrating real-world TELA Go package usage. Complete code samples for deployment, serving, and smart contract operations.",
-      "canonicalUrl": "https://tela.derod.org/go-package-reference/examples",
+      "canonicalUrl": "https://tela.derod.org/go-package-reference/examples.md",
       "sourcePath": "tela-main/pages/go-package-reference/examples.mdx",
       "headings": [
         "TELA API Examples",
@@ -3873,7 +3873,7 @@
       "slug": "javascript-guidelines",
       "title": "JavaScript Guidelines",
       "description": "What JavaScript and CSS features actually work in TELA applications. Myth-busting guide based on verified working code.",
-      "canonicalUrl": "https://tela.derod.org/javascript-guidelines",
+      "canonicalUrl": "https://tela.derod.org/javascript-guidelines.md",
       "sourcePath": "tela-main/pages/javascript-guidelines.mdx",
       "headings": [
         "JavaScript Guidelines",
@@ -3905,7 +3905,7 @@
       "slug": "tela-cli/command-reference",
       "title": "TELA-CLI Command Reference | Complete A-Z Command Documentation",
       "description": "Complete alphabetical reference for all TELA-CLI commands. Comprehensive documentation for deployment, search, serving, Gnomon, file management, and blockchain operations.",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/command-reference",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/command-reference.md",
       "sourcePath": "tela-main/pages/tela-cli/command-reference.mdx",
       "headings": [
         "TELA-CLI Command Reference",
@@ -4042,7 +4042,7 @@
       "slug": "tela-cli/gnomon-guide",
       "title": "Gnomon Indexer Deep-Dive Guide | TELA Content Discovery and Indexing",
       "description": "Complete guide to Gnomon indexer for TELA-CLI - understand blockchain indexing, database management, performance tuning, and advanced search capabilities for DERO content discovery.",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/gnomon-guide",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/gnomon-guide.md",
       "sourcePath": "tela-main/pages/tela-cli/gnomon-guide.mdx",
       "headings": [
         "Gnomon Indexer Deep-Dive Guide",
@@ -4290,7 +4290,7 @@
       "slug": "tela-cli/installation",
       "title": "TELA-CLI Installation Guide | Setup TELA Command-Line Interface",
       "description": "Complete installation guide for TELA-CLI - install from source, build binaries, or use pre-built releases. Setup instructions for Windows, macOS, and Linux.",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/installation",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/installation.md",
       "sourcePath": "tela-main/pages/tela-cli/installation.mdx",
       "headings": [
         "TELA-CLI Installation Guide",
@@ -4444,7 +4444,7 @@
       "slug": "tela-cli/search-guide",
       "title": "TELA-CLI Search Guide | Advanced Search and Content Discovery Techniques",
       "description": "Master TELA-CLI search functionality - discover applications, filter by quality, find libraries, analyze smart contracts, and navigate the TELA ecosystem efficiently.",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/search-guide",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/search-guide.md",
       "sourcePath": "tela-main/pages/tela-cli/search-guide.mdx",
       "headings": [
         "TELA-CLI Search Guide",
@@ -4653,7 +4653,7 @@
       "slug": "tela-cli/troubleshooting",
       "title": "TELA-CLI Troubleshooting Guide",
       "description": "Common issues, solutions, and debugging techniques for TELA-CLI",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/troubleshooting",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/troubleshooting.md",
       "sourcePath": "tela-main/pages/tela-cli/troubleshooting.mdx",
       "headings": [
         "TELA-CLI Troubleshooting",
@@ -4851,7 +4851,7 @@
       "slug": "tela-cli/workflows",
       "title": "TELA-CLI Workflows & Examples | Step-by-Step Development Guides",
       "description": "Step-by-step development workflows, automation examples, and best practices for TELA-CLI. Complete guides for deployment, testing, and production workflows.",
-      "canonicalUrl": "https://tela.derod.org/tela-cli/workflows",
+      "canonicalUrl": "https://tela.derod.org/tela-cli/workflows.md",
       "sourcePath": "tela-main/pages/tela-cli/workflows.mdx",
       "headings": [
         "TELA-CLI Workflows",
@@ -5020,7 +5020,7 @@
       "slug": "tela/overview",
       "title": "TELA Platform Overview | Decentralized Web Standard for DERO Blockchain",
       "description": "Complete overview of TELA - The Enhanced Local Applications platform for building decentralized web applications on DERO blockchain with complete privacy and censorship resistance.",
-      "canonicalUrl": "https://tela.derod.org/tela/overview",
+      "canonicalUrl": "https://tela.derod.org/tela/overview.md",
       "sourcePath": "tela-main/pages/tela/overview.mdx",
       "headings": [
         "TELA Platform Overview",
@@ -5052,7 +5052,7 @@
       "slug": "tela/tela-content-rating-system",
       "title": "TELA Content Rating System | Community-Driven Quality Assessment on DERO",
       "description": "Understanding TELA's integrated rating system that helps users evaluate content quality and trustworthiness. On-chain ratings with blockchain transparency and one vote per account.",
-      "canonicalUrl": "https://tela.derod.org/tela/tela-content-rating-system",
+      "canonicalUrl": "https://tela.derod.org/tela/tela-content-rating-system.md",
       "sourcePath": "tela-main/pages/tela/tela-content-rating-system.mdx",
       "headings": [
         "TELA Content Rating System",
@@ -5073,7 +5073,7 @@
       "slug": "tela/tela-doc-index-structures",
       "title": "TELA DOC vs INDEX | Core Concepts of TELA Smart Contract Architecture",
       "description": "Understand TELA's two core contract types — DOC and INDEX — and how they work together to build decentralized apps on DERO blockchain. Learn modular, updatable contract design.",
-      "canonicalUrl": "https://tela.derod.org/tela/tela-doc-index-structures",
+      "canonicalUrl": "https://tela.derod.org/tela/tela-doc-index-structures.md",
       "sourcePath": "tela-main/pages/tela/tela-doc-index-structures.mdx",
       "headings": [
         "Core Concepts: DOC vs INDEX",
@@ -5103,7 +5103,7 @@
       "slug": "tela/tela-doc-specification",
       "title": "TELA-DOC-1 Specification | Smart Contract Standard for File Storage",
       "description": "Complete specification for TELA-DOC-1 smart contracts - the standard for storing code files on DERO blockchain. Includes docTypes, size limits, compression, and deployment procedures.",
-      "canonicalUrl": "https://tela.derod.org/tela/tela-doc-specification",
+      "canonicalUrl": "https://tela.derod.org/tela/tela-doc-specification.md",
       "sourcePath": "tela-main/pages/tela/tela-doc-specification.mdx",
       "headings": [
         "TELA-DOC-1 Specification",
@@ -5183,7 +5183,7 @@
       "slug": "tela/tela-index-specification",
       "title": "TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard",
       "description": "Complete specification for TELA-INDEX-1 smart contracts - the manifest standard for TELA applications. Includes structure, UpdateCode function, MODs integration, and size limits.",
-      "canonicalUrl": "https://tela.derod.org/tela/tela-index-specification",
+      "canonicalUrl": "https://tela.derod.org/tela/tela-index-specification.md",
       "sourcePath": "tela-main/pages/tela/tela-index-specification.mdx",
       "headings": [
         "TELA-INDEX-1 Specification",
@@ -5283,7 +5283,7 @@
       "slug": "tela/tela-security-model",
       "title": "TELA Security Model | Zero-Trust Architecture for Decentralized Applications",
       "description": "A concise overview of TELA's security approach, including blockchain immutability, cryptographic verification, and trust mechanisms for decentralized applications on DERO.",
-      "canonicalUrl": "https://tela.derod.org/tela/tela-security-model",
+      "canonicalUrl": "https://tela.derod.org/tela/tela-security-model.md",
       "sourcePath": "tela-main/pages/tela/tela-security-model.mdx",
       "headings": [
         "TELA Security Model",
@@ -5309,7 +5309,7 @@
       "slug": "templates/basic-app",
       "title": "Basic TELA App Template | Complete Starter with XSWD Integration",
       "description": "Complete starter template based on proven tela_tests patterns. Production-ready TELA application with XSWD connection, modern UI, and dashboard components.",
-      "canonicalUrl": "https://tela.derod.org/templates/basic-app",
+      "canonicalUrl": "https://tela.derod.org/templates/basic-app.md",
       "sourcePath": "tela-main/pages/templates/basic-app.mdx",
       "headings": [
         "Basic TELA App Template",
@@ -5328,7 +5328,7 @@
       "slug": "templates/overview",
       "title": "TELA Project Templates",
       "description": "Ready-to-use project templates for building TELA applications quickly",
-      "canonicalUrl": "https://tela.derod.org/templates/overview",
+      "canonicalUrl": "https://tela.derod.org/templates/overview.md",
       "sourcePath": "tela-main/pages/templates/overview.mdx",
       "headings": [
         "TELA Project Templates",
@@ -5366,7 +5366,7 @@
       "slug": "templates/xswd-advanced",
       "title": "XSWD Advanced | Official Production-Grade TELA XSWD Library",
       "description": "Production-grade XSWD implementation with multi-endpoint fallback, privacy monitoring, and high-level API methods. The official XSWD library for TELA applications.",
-      "canonicalUrl": "https://tela.derod.org/templates/xswd-advanced",
+      "canonicalUrl": "https://tela.derod.org/templates/xswd-advanced.md",
       "sourcePath": "tela-main/pages/templates/xswd-advanced.mdx",
       "headings": [
         "XSWD Advanced - Official TELA Library",
@@ -5395,7 +5395,7 @@
       "slug": "templates/xswd-basic",
       "title": "XSWD Basic Core | Lightweight XSWD Library Under 18KB",
       "description": "Lightweight XSWD implementation under 18KB for basic TELA applications. Simple DERO wallet connectivity without advanced features for size-constrained apps.",
-      "canonicalUrl": "https://tela.derod.org/templates/xswd-basic",
+      "canonicalUrl": "https://tela.derod.org/templates/xswd-basic.md",
       "sourcePath": "tela-main/pages/templates/xswd-basic.mdx",
       "headings": [
         "XSWD Basic Core",
@@ -5417,7 +5417,7 @@
       "slug": "tutorials/first-app",
       "title": "First App Tutorial | Build Your First TELA Application",
       "description": "Complete step-by-step tutorial to build your first TELA application - from environment setup to deployment on DERO blockchain. Learn XSWD integration and deploy private web apps.",
-      "canonicalUrl": "https://tela.derod.org/tutorials/first-app",
+      "canonicalUrl": "https://tela.derod.org/tutorials/first-app.md",
       "sourcePath": "tela-main/pages/tutorials/first-app.mdx",
       "headings": [
         "First App Tutorial",
@@ -5468,7 +5468,7 @@
       "slug": "tutorials/launch-tela-site",
       "title": "How to Launch a TELA Site Using TELA-CLI | Complete Deployment Tutorial",
       "description": "A comprehensive step-by-step guide to creating and deploying your own decentralized TELA site on the DERO blockchain using the TELA-CLI tool. From local testing to production deployment.",
-      "canonicalUrl": "https://tela.derod.org/tutorials/launch-tela-site",
+      "canonicalUrl": "https://tela.derod.org/tutorials/launch-tela-site.md",
       "sourcePath": "tela-main/pages/tutorials/launch-tela-site.mdx",
       "headings": [
         "Launch a TELA site (CLI)",
@@ -5529,7 +5529,7 @@
       "slug": "tutorials/version-upgrades",
       "title": "TELA Version Upgrades & Changes | Managing Application Updates",
       "description": "Guide to upgrading TELA applications, handling breaking changes, and managing version compatibility. Complete strategy for immutable smart contract updates.",
-      "canonicalUrl": "https://tela.derod.org/tutorials/version-upgrades",
+      "canonicalUrl": "https://tela.derod.org/tutorials/version-upgrades.md",
       "sourcePath": "tela-main/pages/tutorials/version-upgrades.mdx",
       "headings": [
         "TELA Version Upgrades & Changes",
@@ -5650,7 +5650,7 @@
       "slug": "xswd",
       "title": "XSWD Protocol Overview | Secure WebSocket for DERO Wallet Integration",
       "description": "Complete guide to XSWD protocol for TELA application development. Learn secure wallet integration and blockchain communication.",
-      "canonicalUrl": "https://tela.derod.org/xswd",
+      "canonicalUrl": "https://tela.derod.org/xswd.md",
       "sourcePath": "tela-main/pages/xswd.mdx",
       "headings": [
         "XSWD Protocol Overview",

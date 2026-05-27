@@ -36,10 +36,9 @@ function buildCanonicalUrl(product: DeroDocProduct, slug: string): string {
   const trimmed = slug.replace(/^\/+|\/+$/g, '')
   if (!trimmed) return `${DOC_BASE_URLS[product]}/`
   // .md mirror suffix points agents at the LLM-canonical Markdown surface.
-  // Today only derod-main ships the App Router .md mirrors; tela / hologram /
-  // deropay will join when those sites land their mirrors (drop the gate then).
-  const suffix = product === 'derod' ? '.md' : ''
-  return `${DOC_BASE_URLS[product]}/${trimmed}${suffix}`
+  // All four ecosystem sites (derod, tela, hologram, deropay) now ship the
+  // App Router .md mirror route, so the suffix applies universally.
+  return `${DOC_BASE_URLS[product]}/${trimmed}.md`
 }
 
 /**
