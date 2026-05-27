@@ -35,7 +35,11 @@ export type DeroCitation = {
 function buildCanonicalUrl(product: DeroDocProduct, slug: string): string {
   const trimmed = slug.replace(/^\/+|\/+$/g, '')
   if (!trimmed) return `${DOC_BASE_URLS[product]}/`
-  return `${DOC_BASE_URLS[product]}/${trimmed}`
+  // .md mirror suffix points agents at the LLM-canonical Markdown surface.
+  // Today only derod-main ships the App Router .md mirrors; tela / hologram /
+  // deropay will join when those sites land their mirrors (drop the gate then).
+  const suffix = product === 'derod' ? '.md' : ''
+  return `${DOC_BASE_URLS[product]}/${trimmed}${suffix}`
 }
 
 /**
@@ -157,7 +161,7 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
     {
       product: 'derod',
       slug: 'integrity/negative-transfer-protection',
-      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+      title: 'Negative Transfer Protection: Cryptographic Impossibility | DERO Blockchain',
     },
   ],
   audit_chain_artifact_claim: [
@@ -169,7 +173,7 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
     {
       product: 'derod',
       slug: 'integrity/negative-transfer-protection',
-      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+      title: 'Negative Transfer Protection: Cryptographic Impossibility | DERO Blockchain',
     },
   ],
   dero_forge_demo_proof: [
@@ -181,12 +185,12 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
     {
       product: 'derod',
       slug: 'integrity/negative-transfer-protection',
-      title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+      title: 'Negative Transfer Protection: Cryptographic Impossibility | DERO Blockchain',
     },
     {
       product: 'derod',
       slug: 'integrity/range-proof-integrity',
-      title: "Range Proof Integrity: DERO's Triple-Layer Defense | DERO Blockchain",
+      title: "Range Proof Integrity: How DERO's Bulletproof Binds Amounts | DERO Blockchain",
     },
   ],
   // Composite #2 (`explain_smart_contract`) curates all four DVM docs so its
@@ -301,7 +305,7 @@ export const FLAGGED_CHAIN_ARTIFACTS: readonly FlaggedArtifact[] = [
       {
         product: 'derod',
         slug: 'integrity/negative-transfer-protection',
-        title: 'Negative Transfer Protection: Mathematical Impossibility | DERO Blockchain',
+        title: 'Negative Transfer Protection: Cryptographic Impossibility | DERO Blockchain',
       },
       {
         product: 'derod',

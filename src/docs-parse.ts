@@ -120,7 +120,25 @@ async function walkMdxFiles(dir: string): Promise<string[]> {
 
 function buildCanonicalUrl(product: DeroDocProduct, slug: string): string {
   if (!slug) return `${DOC_BASE_URLS[product]}/`
-  return `${DOC_BASE_URLS[product]}/${slug}`
+  // .md mirror suffix points agents at the LLM-canonical Markdown surface.
+  // Gated to derod for now (the only site that ships the App Router .md
+  // mirror route today); drop the gate as tela / hologram / deropay catch up.
+  const suffix = product === 'derod' ? '.md' : ''
+  return `${DOC_BASE_URLS[product]}/${slug}${suffix}`
+}
+
+/**
+ * Normalize a frontmatter-supplied canonical URL so it carries the same
+ * `.md` suffix as builder-generated URLs for the same product. Without this,
+ * any MDX page that declared its own `canonicalUrl` in frontmatter would
+ * bypass the suffix and point agents at the HTML version.
+ */
+function applyMdSuffix(product: DeroDocProduct, url: string): string {
+  if (product !== 'derod') return url
+  // Don't double-suffix; preserve query/anchor if present.
+  const [base, rest = ''] = url.split(/(?=[?#])/)
+  if (/\.md$/.test(base) || /\.[a-z0-9]{2,5}$/i.test(base)) return url
+  return `${base}.md${rest}`
 }
 
 export async function indexDocsFromRoot(root: string): Promise<DeroDocsPage[]> {
@@ -145,7 +163,7 @@ export async function indexDocsFromRoot(root: string): Promise<DeroDocsPage[]> {
         slug,
         title: frontmatter.title || safeTitleFromSlug(slug),
         description: frontmatter.description || null,
-        canonicalUrl: frontmatter.canonicalUrl || buildCanonicalUrl(product, slug),
+        canonicalUrl: applyMdSuffix(product, frontmatter.canonicalUrl || buildCanonicalUrl(product, slug)),
         sourcePath: path.relative(root, filePath).replace(/\\/g, '/'),
         headings,
         plainText: mdxToPlainText(content),
