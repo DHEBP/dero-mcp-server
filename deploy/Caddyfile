@@ -1,0 +1,65 @@
+# Caddyfile for mcp.derod.org (or any single hostname running dero-mcp-server).
+#
+# - Auto-TLS via Let's Encrypt (ACME). Set ACME_EMAIL in .env for failure alerts.
+# - Routes /mcp + /health to the dero-mcp-server HTTP container.
+# - Health-aware: returns 502 if the container is unhealthy.
+# - Logs to stdout (Docker captures); no IPs in access logs.
+
+{
+	email {$ACME_EMAIL}
+	servers {
+		# Trust the X-Forwarded-* headers Caddy itself sets, but do not
+		# blanket-trust upstream proxies (no Cloudflare proxy in front
+		# by default — user can add this later if they front Caddy with
+		# Cloudflare).
+		trusted_proxies static private_ranges
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Privacy-respecting access log: redact IPs, keep status + path + ua
+	# for ops debugging. Comment this block out to disable logging entirely.
+	log {
+		output stdout
+		format json {
+			time_format iso8601
+		}
+	}
+	request_header -X-Real-IP
+	request_header -X-Forwarded-For
+
+	# Health endpoint passthrough.
+	handle /health {
+		reverse_proxy mcp:8787
+	}
+
+	# MCP streamable HTTP endpoint.
+	handle /mcp {
+		reverse_proxy mcp:8787 {
+			# Streamable HTTP can take a while on long tool calls
+			# (composites that chain several daemon RPCs).
+			transport http {
+				read_timeout 60s
+				write_timeout 60s
+			}
+		}
+	}
+
+	# Optional discovery: mirror the upstream mcp-server-card.json so
+	# the MCP descriptor is reachable at the same domain. Update with
+	# your actual JSON or remove this block if you'd rather host it
+	# only on derod.org.
+	#
+	# handle /.well-known/mcp-server-card.json {
+	# 	header content-type application/json
+	# 	respond `{"$schema":"...","name":"com.derod/dero-mcp", ...}`
+	# }
+
+	# Everything else gets a small landing page so a human who pokes
+	# around sees something meaningful.
+	handle {
+		respond "dero-mcp-server — see https://github.com/DHEBP/dero-mcp-server for the MCP descriptor + tool catalog. POST /mcp for the MCP endpoint, GET /health for status." 200
+	}
+}

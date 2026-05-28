@@ -1,0 +1,63 @@
+# dero-mcp-server hosted deployment.
+#
+# Two services:
+#   - caddy:       reverse proxy + auto-TLS via Let's Encrypt
+#   - mcp:         dero-mcp-server in streamable-HTTP mode
+#
+# The DERO daemon is NOT in this compose. You provide DERO_DAEMON_URL
+# via .env — point at:
+#   - your own derod running on the same host (outside Docker) at
+#     http://host.docker.internal:10102  (or via host network)
+#   - a community-run public daemon
+#   - the default baked into dero-mcp-server (http://82.65.143.182:10102)
+#     when DERO_DAEMON_URL is unset
+#
+# First-time setup:
+#   cp .env.example .env       # then edit DOMAIN, ACME_EMAIL, etc.
+#   docker compose up -d
+#   curl https://${DOMAIN}/health
+#
+# See deploy/README.md for the full operations runbook.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    depends_on:
+      mcp:
+        condition: service_healthy
+
+  mcp:
+    image: dero-mcp-server:${DERO_MCP_VERSION:-0.2.4}
+    build:
+      context: .
+      args:
+        DERO_MCP_VERSION: ${DERO_MCP_VERSION:-0.2.4}
+    restart: unless-stopped
+    expose:
+      - "8787"
+    environment:
+      DERO_MCP_HTTP: "1"
+      DERO_MCP_HTTP_HOST: "0.0.0.0"
+      DERO_MCP_HTTP_PORT: "8787"
+      DERO_DAEMON_URL: ${DERO_DAEMON_URL:-}
+      DERO_MCP_AUTH_TOKEN: ${DERO_MCP_AUTH_TOKEN:-}
+    # Reach the host's derod over the host network bridge, if the user
+    # is running the daemon directly on the VPS (outside Docker).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  caddy_data:
+  caddy_config:
