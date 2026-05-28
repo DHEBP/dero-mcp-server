@@ -1,7 +1,7 @@
 {
   "name": "dero-mcp-server",
   "mcpName": "io.github.DHEBP/dero-mcp-server",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Model Context Protocol (MCP) server exposing DERO Stargate daemon JSON-RPC and bundled documentation to Claude and other MCP clients",
   "type": "module",
   "license": "MIT",
@@ -28,6 +28,7 @@
     "doctor": "./scripts/doctor.sh",
     "smoke:mcp": "npx tsx scripts/mcp-smoke-probes.ts",
     "smoke:docs": "npx tsx scripts/docs-smoke-probes.ts",
+    "smoke:http": "npm run build && npx tsx scripts/http-smoke-probes.ts",
     "test:flows": "npx tsx scripts/flow-test.ts",
     "test:composites": "npx tsx scripts/flow-composites.ts",
     "check:mcp-descriptions": "npx tsx scripts/check-mcp-descriptions.ts",
@@ -36,6 +37,7 @@
     "check:proof-roundtrip": "npx tsx scripts/check-proof-roundtrip.ts",
     "check:tx-parse": "npx tsx scripts/check-tx-parse.ts",
     "check:forge-demo": "npx tsx scripts/check-forge-demo.ts",
+    "check:server-json": "npx tsx scripts/check-server-json.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

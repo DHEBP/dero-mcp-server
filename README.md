@@ -6,11 +6,11 @@
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.2.2` · **Transport:** `stdio` (npm package)
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.3.0` · **Transports:** `stdio` (default, npm package) · `streamable-http` (`--http`, for self-hosting)
 
 ---
 
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, **OpenCode**, or any MCP client that launches a local process over stdio.
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, **OpenCode**, or any MCP client that launches a local process over **stdio** — or run it in **streamable-HTTP** mode behind a domain (e.g. `mcp.derod.org`) for ChatGPT Custom Connectors, Cursor hosted mode, and any agent that needs a remote URL instead of a subprocess. See [`deploy/`](./deploy/) for a reference self-hosted deployment.
 
 ## Quick start
 
@@ -79,6 +79,27 @@ DERO_DAEMON_URL=http://127.0.0.1:10102 node dist/index.js
 The baked-in default is a **third-party** public RPC (`82.65.143.182:10102`) — prefer your own node when you run one.
 
 Strip a trailing `/json_rpc` if you paste a full JSON-RPC URL — this server appends `/json_rpc`.
+
+## HTTP mode (self-hosted)
+
+For clients that can't launch a local subprocess — ChatGPT Custom Connectors, Cursor hosted mode, n8n / Zapier integrations — run the server in streamable-HTTP mode and put it behind your own domain:
+
+```bash
+DERO_MCP_AUTH_TOKEN=$(openssl rand -base64 48) \
+  dero-mcp-server --http
+# [dero-mcp-server] HTTP listening on 127.0.0.1:8787 (POST /mcp · GET /health)
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `DERO_MCP_HTTP` | unset | Set to `1` (or pass `--http`) to start in HTTP mode. |
+| `DERO_MCP_HTTP_PORT` | `8787` | Listen port. |
+| `DERO_MCP_HTTP_HOST` | `127.0.0.1` | Listen address. Use `0.0.0.0` to bind publicly (do not without auth + TLS upstream). |
+| `DERO_MCP_AUTH_TOKEN` | unset | If set, every `/mcp` request must carry `Authorization: Bearer <token>`. Constant-time compared. |
+
+For a turnkey deploy with Caddy + auto-TLS + Docker Compose, see [`deploy/README.md`](./deploy/README.md). It's a self-hosting reference for `mcp.derod.org`-style instances — anyone can fork and run their own.
+
+The stdio transport (below) and the HTTP transport share the same underlying server factory, so the tool surface, response shapes, and error codes are identical across both.
 
 ## Claude Desktop (same pattern for OpenCode and Cursor)
 

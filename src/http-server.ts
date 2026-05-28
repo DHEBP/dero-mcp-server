@@ -38,7 +38,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createDeroMcpServer } from './server.js'
 
-const PACKAGE_VERSION = '0.2.4'
+const PACKAGE_VERSION = '0.3.0'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)
