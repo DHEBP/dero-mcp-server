@@ -1,6 +1,6 @@
 # DERO MCP server
 
-> **Model Context Protocol server for DERO chain inspection** — query daemon state, inspect smart contracts, trace transactions, and run read-only diagnostics from Cursor, OpenCode, Claude Desktop, or any MCP host.
+> **A read-only Model Context Protocol server for the DERO privacy blockchain** — a private-by-default Layer 1 with encrypted balances, private smart contracts (DVM-BASIC), and no public transaction graph. 21 daemon primitives + 7 composite tools, with a bundled documentation index spanning derod, tela, hologram, and deropay.
 
 [![MCP Registry](https://img.shields.io/badge/MCP-io.github.DHEBP%2Fdero--mcp--server-blue)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHEBP/dero-mcp-server)
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
@@ -10,46 +10,126 @@
 
 ---
 
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Use it from **Claude Desktop**, **Cursor**, **OpenCode**, or any MCP client that launches a local process over **stdio** — or run it in **streamable-HTTP** mode behind a domain (e.g. `mcp.derod.org`) for ChatGPT Custom Connectors, Cursor hosted mode, and any agent that needs a remote URL instead of a subprocess. See [`deploy/`](./deploy/) for a reference self-hosted deployment.
+## What is an MCP server
+
+An **MCP server** (Model Context Protocol) is a small program that gives your AI assistant — Claude Desktop, Cursor, OpenCode, ChatGPT with Custom Connectors — the ability to call specific tools on your behalf. Instead of the AI *talking* about DERO from memory, it can actually look things up: fetch a block, read a contract, search the docs, trace a transaction, estimate a deploy.
+
+You install it once and point your AI host at it. From then on, every DERO question you ask in chat hits live chain data and the bundled docs corpus — not the AI's training cutoff.
+
+## What is DERO
+
+If you're new to DERO: it's a privacy-first L1 blockchain — often described as a **private alternative to Ethereum** for builders who want smart contracts without a transparent ledger, or as a **Monero alternative** for users who want account-based privacy with native programmability instead of UTXO-only payments. Homomorphically encrypted balances. Ring signatures hide senders. Zero-knowledge range proofs (Bulletproofs) hide amounts. There is no public transaction graph. The current mainnet is **DERO Stargate**.
+
+Full docs: [derod.org](https://derod.org)
+
+## About this server
+
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes **read-only and analysis** calls against a DERO Stargate **daemon** JSON-RPC endpoint. Ships as a stdio process for local MCP hosts (Claude Desktop, Cursor, OpenCode) or in **streamable-HTTP** mode behind a domain (e.g. `mcp.derod.org`) for ChatGPT Custom Connectors, Cursor hosted mode, and any agent that needs a remote URL. See [`deploy/`](./deploy/) for a reference self-hosted deployment.
 
 ## Quick start
 
-### 1. Add this to your MCP host config
+Get a working DERO MCP connection in under 5 minutes.
+
+### What you need
+
+- **Node.js 18+** ([install](https://nodejs.org)) — verify with `node --version`.
+- **An MCP host** — Claude Desktop, Cursor, OpenCode, or ChatGPT with Custom Connectors. This walkthrough uses Claude Desktop; the JSON config below works identically in Cursor and OpenCode.
+- **Optional:** a local DERO daemon. The server defaults to a public RPC, so you can try it without running your own node. Run your own for production — [how to](https://derod.org/basics/running-a-node.md).
+
+### 1. Open your MCP host's config
+
+| Host | Where |
+|---|---|
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cursor | Settings → MCP → Add Server |
+| OpenCode | Settings → MCP → Add Server |
+
+Create the file if it doesn't exist.
+
+### 2. Add the DERO MCP server
 
 ```json
 {
   "mcpServers": {
     "dero-daemon": {
       "command": "npx",
-      "args": ["-y", "dero-mcp-server"],
-      "env": {
-        "DERO_DAEMON_URL": "http://127.0.0.1:10102"
-      }
+      "args": ["-y", "dero-mcp-server"]
     }
   }
 }
 ```
 
-Use your own daemon URL when possible. If `DERO_DAEMON_URL` is omitted, the server uses the default public RPC.
+This uses `npx` to fetch and run the latest published version — no manual install or build required.
 
-### 2. Restart your MCP host
+To point at your own daemon, add an `env` block:
 
-### 3. Try a prompt
+```json
+"env": { "DERO_DAEMON_URL": "http://127.0.0.1:10102" }
+```
 
-> "Check if my DERO node is synced and summarize chain health."
+### 3. Restart your MCP host
+
+Fully quit and reopen — not just refresh. MCP servers load at startup.
+
+### 4. Verify it works
+
+In a new chat:
+
+> *"What's the current DERO chain height?"*
+
+A number back means you're connected. If you see an error, confirm the config file path is correct and your host was fully restarted (not just refreshed).
+
+Once it's working, jump to [Try a prompt](#try-a-prompt) for a full tour.
 
 ---
 
-## What it does
+## What you can do with it
 
-- Connects to `{DERO_DAEMON_URL}/json_rpc` (default `http://82.65.143.182:10102`).
-- Registers one MCP tool per common daemon method (`DERO.GetInfo`, `DERO.GetHeight`, `DERO.GetSC`, etc.).
-- Adds bundled docs retrieval tools for `derod`, `tela`, `hologram`, and `deropay` (ships inside the npm package — no local clone required).
-- Exposes MCP resources and prompts for consistent investigation workflows.
-- Returns JSON results as MCP text content.
-- Returns structured tool errors with `_meta.error` (`code`, `hint`, `retryable`) to help agents self-correct.
+Once installed, your MCP host can do all of these on your behalf — in natural language, no JSON-RPC needed:
 
-**Not included (by design in v0.1):** wallet RPC (`transfer`, `scinvoke`), `DERO.SendRawTransaction`, `DERO.SubmitBlock`. Those can move funds or consensus data; add them only with explicit user consent and a locked-down setup.
+- **Inspect the chain** — blocks, transactions, mempool, encrypted balances, registered names
+- **Analyze smart contracts** — read code and state, classify the pattern, estimate deploy gas, pull relevant DVM-BASIC docs in one call
+- **Trace transactions** — look up any hash, confirm inclusion, classify the kind (transfer / SC install / SC call)
+- **Search the docs** — across all four DERO sites (derod, tela, hologram, deropay)
+- **Run composite analyses** — chain health, claim audits, docs path recommendations, deploy pre-flights — each returns curated DERO docs citations alongside the data
+
+## Try a prompt
+
+After installing and restarting your MCP host, paste any of these. Start simple and work up.
+
+### Basic
+
+Single-tool questions that verify the install and exercise live queries.
+
+> *"What's the current DERO chain height?"*
+>
+> *"Resolve the DERO name 'engram' to an address."*
+>
+> *"Find the documentation page on Bulletproofs."*
+>
+> *"What does the smart contract at SCID 0000…0001 do?"*
+
+### Intermediate
+
+Composite tools that fan out into multiple primitives and return a synthesized answer with citations.
+
+> *"Explain the smart contract at SCID 0000000000000000000000000000000000000000000000000000000000000001 — what it does, its functions, and which DVM-BASIC docs are relevant."*
+>
+> *"Trace transaction <hash> with full context — confirmation, classification, and what it touched."*
+>
+> *"What's the right reading path for someone new to DERO smart contracts who wants to deploy a DVM-BASIC contract?"*
+>
+> *"Estimate the gas cost to deploy this DVM source: <paste contract>"*
+
+For multi-step agent recipes, per-tool guidance, error contract, and the composite-first rule, see [`SKILL.md`](./SKILL.md).
+
+**Not included (by design):** wallet RPC (`transfer`, `scinvoke`), `DERO.SendRawTransaction`, `DERO.SubmitBlock`. Those can move funds or consensus data; add them only with explicit user consent and a locked-down setup.
+
+## See also
+
+- [`SKILL.md`](./SKILL.md) — per-tool agent runbook: composite-first rule, structured error contract, citation rules, agent-loop recipes, port reference.
+- [`POSITIONING.md`](./POSITIONING.md) — who DERO MCP is for, who it isn't, comparison vs ACP / Stripe / Crossmint / Skyfire, privacy posture.
 
 ## Requirements
 

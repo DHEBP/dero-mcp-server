@@ -16,6 +16,8 @@
     "dist",
     "data",
     "README.md",
+    "SKILL.md",
+    "POSITIONING.md",
     "LICENSE"
   ],
   "scripts": {
@@ -52,10 +54,22 @@
   },
   "keywords": [
     "dero",
+    "dero-blockchain",
     "mcp",
     "model-context-protocol",
     "blockchain",
-    "json-rpc"
+    "json-rpc",
+    "privacy-blockchain",
+    "privacy-coin",
+    "private-smart-contracts",
+    "monero-alternative",
+    "private-ethereum",
+    "homomorphic-encryption",
+    "ring-signatures",
+    "bulletproofs",
+    "stargate",
+    "dvm-basic",
+    "tela"
   ],
   "repository": {
     "type": "git",
