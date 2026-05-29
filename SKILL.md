@@ -129,7 +129,7 @@ Canonical DERO port table. Use this before suggesting any URL.
 
 Defaults:
 
-- `DERO_DAEMON_URL` defaults to a public RPC if unset — fine for read-only inspection, but recommend the user run their own node for production work.
+- `DERO_DAEMON_URL` is **local-first** when unset: the server uses a local node at `127.0.0.1:10102` if reachable, else a public RPC fallback. Recommend running your own node for production work; set `DERO_DAEMON_URL` to pin a specific endpoint.
 - Wallet RPC requires `--rpc-server` flag on the wallet.
 - XSWD is the in-process auth bridge between browser apps and a running wallet — read-only by default; write capabilities require explicit user approval per request.
 

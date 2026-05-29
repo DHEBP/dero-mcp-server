@@ -34,7 +34,7 @@ Get a working DERO MCP connection in under 5 minutes.
 
 - **Node.js 18+** ([install](https://nodejs.org)) — verify with `node --version`.
 - **An MCP host** — Claude Desktop, Cursor, OpenCode, or ChatGPT with Custom Connectors. This walkthrough uses Claude Desktop; the JSON config below works identically in Cursor and OpenCode.
-- **Optional:** a local DERO daemon. The server defaults to a public RPC, so you can try it without running your own node. Run your own for production — [how to](https://derod.org/basics/running-a-node.md).
+- **Optional:** a local DERO daemon. If one is running on `127.0.0.1:10102`, the server detects and uses it automatically; otherwise it falls back to a public RPC, so it works with zero setup. Run your own for production — [how to](https://derod.org/basics/running-a-node.md).
 
 ### 1. Open your MCP host's config
 
@@ -62,7 +62,7 @@ Create the file if it doesn't exist.
 
 This uses `npx` to fetch and run the latest published version — no manual install or build required.
 
-To point at your own daemon, add an `env` block:
+The server **auto-detects a local node** at `127.0.0.1:10102`. To pin a specific daemon (custom port or a remote URL), add an `env` block:
 
 ```json
 "env": { "DERO_DAEMON_URL": "http://127.0.0.1:10102" }
@@ -144,7 +144,7 @@ npm install
 npm run build
 ```
 
-Run (same default RPC as below if `DERO_DAEMON_URL` is unset):
+Run (auto-detects a local node at `127.0.0.1:10102`, else public fallback, when `DERO_DAEMON_URL` is unset):
 
 ```bash
 node dist/index.js
@@ -156,7 +156,7 @@ Or set an explicit URL (e.g. your local daemon):
 DERO_DAEMON_URL=http://127.0.0.1:10102 node dist/index.js
 ```
 
-The baked-in default is a **third-party** public RPC (`82.65.143.182:10102`) — prefer your own node when you run one.
+Daemon resolution is **local-first**: with `DERO_DAEMON_URL` unset, the server uses a local node at `127.0.0.1:10102` if it answers, else the baked-in **third-party** public RPC (`82.65.143.182:10102`). Prefer your own node for privacy.
 
 Strip a trailing `/json_rpc` if you paste a full JSON-RPC URL — this server appends `/json_rpc`.
 
@@ -196,7 +196,7 @@ Add to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claud
 }
 ```
 
-Optional: add `"env": { "DERO_DAEMON_URL": "http://127.0.0.1:10102" }` if you use a **local** daemon instead of the default public RPC.
+Optional: add `"env": { "DERO_DAEMON_URL": "http://127.0.0.1:10102" }` to pin a specific daemon. Not needed if your local node uses the default port — the server auto-detects it.
 
 Restart Claude Desktop (or your OpenCode/Cursor host).
 
@@ -212,7 +212,7 @@ In **OpenCode MCP settings**, add a server with the same `command` / `args` / `e
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DERO_DAEMON_URL` | `http://82.65.143.182:10102` | Daemon **base** URL (no `/json_rpc` required). Set to `http://127.0.0.1:10102` for a local daemon. |
+| `DERO_DAEMON_URL` | *(local-first auto-detect)* | Daemon **base** URL (no `/json_rpc` required). Unset → local node at `127.0.0.1:10102` if reachable, else public fallback (`82.65.143.182:10102`). Set to pin a specific endpoint. |
 | `DERO_DOCS_ROOT` | bundled index | Optional dev override: path to a local `dero-docs` clone to index live MDX instead of the shipped bundle. |
 
 ## Maintainer: bundled docs

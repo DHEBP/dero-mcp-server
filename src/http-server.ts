@@ -11,7 +11,9 @@
  * privacy-first brand.
  *
  * Environment:
- *   DERO_DAEMON_URL       — JSON-RPC base (default: same as stdio entry)
+ *   DERO_DAEMON_URL       — JSON-RPC base. If unset, resolves local-first:
+ *                           a local derod (127.0.0.1:10102) if reachable,
+ *                           else the baked-in public fallback.
  *   DERO_MCP_HTTP_PORT    — listen port (default: 8787)
  *   DERO_MCP_HTTP_HOST    — listen address (default: 127.0.0.1)
  *   DERO_MCP_AUTH_TOKEN   — if set, require `Authorization: Bearer <token>`
@@ -22,7 +24,7 @@
  * Routes:
  *   POST /mcp     — MCP streamable HTTP endpoint
  *   GET  /mcp     — same (SSE compat for older clients)
- *   GET  /health  — health check {status, version, daemon_url}
+ *   GET  /health  — health check {status, version, daemon_url, daemon_source}
  *   anything else → 404
  *
  * Reverse-proxy expectations:
@@ -37,18 +39,15 @@ import { Buffer } from 'node:buffer'
 import { timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createDeroMcpServer } from './server.js'
+import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
 
-const PACKAGE_VERSION = '0.3.0'
+const PACKAGE_VERSION = '0.4.0'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)
   const host = process.env.DERO_MCP_HTTP_HOST ?? '127.0.0.1'
   const authToken = process.env.DERO_MCP_AUTH_TOKEN?.trim() || undefined
-  const daemonUrlRaw = process.env.DERO_DAEMON_URL?.trim()
-  const daemonUrl = daemonUrlRaw
-    ? daemonUrlRaw.replace(/\/json_rpc\/?$/, '')
-    : 'http://82.65.143.182:10102'
-  return { port, host, authToken, daemonUrl }
+  return { port, host, authToken }
 }
 
 function isAuthorized(req: http.IncomingMessage, expectedToken: string): boolean {
@@ -72,7 +71,9 @@ function send(res: http.ServerResponse, status: number, body: string, contentTyp
 }
 
 export async function startHttpServer(): Promise<void> {
-  const { port, host, authToken, daemonUrl } = readEnv()
+  const { port, host, authToken } = readEnv()
+  const resolution = await resolveDaemonBase()
+  const daemonUrl = resolution.base
   const mcpServer = createDeroMcpServer(daemonUrl)
 
   // Stateless mode: no session IDs, no in-memory state across requests.
@@ -95,6 +96,7 @@ export async function startHttpServer(): Promise<void> {
           version: PACKAGE_VERSION,
           transport: 'streamable-http',
           daemon_url: daemonUrl,
+          daemon_source: resolution.source,
         }),
       )
       return
@@ -130,7 +132,7 @@ export async function startHttpServer(): Promise<void> {
         `[dero-mcp-server] HTTP listening on ${host}:${port} (POST /mcp · GET /health)\n`,
       )
       process.stderr.write(
-        `[dero-mcp-server] daemon: ${daemonUrl} · auth: ${authToken ? 'bearer required' : 'none (do not expose publicly)'}\n`,
+        `[dero-mcp-server] ${describeDaemonResolution(resolution)} · auth: ${authToken ? 'bearer required' : 'none (do not expose publicly)'}\n`,
       )
       resolve()
     })
