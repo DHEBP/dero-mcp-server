@@ -4,6 +4,21 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1]
+
+### Fixed
+- **HTTP transport: fresh `McpServer` + transport per request.** The streamable-HTTP
+  entry point previously created one shared `StreamableHTTPServerTransport` at
+  startup and reused it for every `/mcp` request. The SDK transport carries
+  per-request state (response writer, SSE stream), so the *first* request after
+  start would succeed, then every subsequent request returned HTTP 500 with an
+  empty body (the SDK throws after partially writing headers, so our catch
+  block's `res.headersSent` guard suppresses the JSON error body). The fix is
+  the official stateless pattern: instantiate `McpServer` + transport inside
+  the request handler and clean both up on `res.on('close')`. Per-request
+  isolation also prevents request-ID collisions across concurrent clients.
+  Stdio transport is unaffected.
+
 ## [0.4.0]
 
 ### Changed

@@ -41,7 +41,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createDeroMcpServer } from './server.js'
 import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
 
-const PACKAGE_VERSION = '0.4.0'
+const PACKAGE_VERSION = '0.4.1'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)
@@ -74,14 +74,6 @@ export async function startHttpServer(): Promise<void> {
   const { port, host, authToken } = readEnv()
   const resolution = await resolveDaemonBase()
   const daemonUrl = resolution.base
-  const mcpServer = createDeroMcpServer(daemonUrl)
-
-  // Stateless mode: no session IDs, no in-memory state across requests.
-  // Fits read-only semantics and minimizes the privacy surface.
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  })
-  await mcpServer.connect(transport)
 
   const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
@@ -115,7 +107,23 @@ export async function startHttpServer(): Promise<void> {
       return
     }
 
+    // Stateless mode: fresh McpServer + transport per request. The SDK's
+    // StreamableHTTPServerTransport carries per-request state (the active
+    // response writer, SSE stream); reusing a single transport across
+    // requests wedges every request after the first. Per-request isolation
+    // also prevents request-ID collisions across concurrent clients.
+    const mcpServer = createDeroMcpServer(daemonUrl)
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    })
+
+    res.on('close', () => {
+      transport.close().catch(() => {})
+      mcpServer.close().catch(() => {})
+    })
+
     try {
+      await mcpServer.connect(transport)
       await transport.handleRequest(req, res)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
