@@ -11,7 +11,7 @@
 #     -e DERO_MCP_HTTP_HOST=0.0.0.0 \
 #     dero-mcp-server:0.2.4
 
-FROM node:20-alpine
+FROM node:22-alpine
 
 ARG DERO_MCP_VERSION=latest
 
