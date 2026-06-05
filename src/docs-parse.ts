@@ -87,15 +87,67 @@ export function extractHeadings(markdown: string): string[] {
   return headings
 }
 
+/**
+ * Decode the HTML entities that survive MDX → plaintext: &amp;, &lt;, &gt;,
+ * &quot;, &apos;, &#39;, and numeric entities. Without this, Captain quotes
+ * containing `&amp;` (MDX-escaped `&`) reach MCP consumers as literal "&amp;".
+ */
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+/**
+ * Pull an attribute value out of a JSX opening-tag string. Handles
+ * double-quoted and single-quoted forms; returns `undefined` if not present.
+ */
+function readJsxAttr(openTag: string, name: string): string | undefined {
+  const match = openTag.match(new RegExp(`${name}\\s*=\\s*"([^"]*)"|${name}\\s*=\\s*'([^']*)'`))
+  return match?.[1] ?? match?.[2]
+}
+
+/**
+ * Transform <CaptainNote> and <Quote> blocks into markdown blockquotes that
+ * preserve attribution. Without this, the body text reaches MCP consumers
+ * unattributed — "— Captain", date, channel, and source link are all rendered
+ * by the React component and never appear in the MDX source.
+ *
+ * Output shape: `> {body}\n>\n> — {author}, {date}, {channel} ({source})`.
+ * Runs before generic JSX stripping so the body survives.
+ */
+function shimAttributedQuotes(input: string): string {
+  const pattern = /<(CaptainNote|Quote)\b([\s\S]*?)>([\s\S]*?)<\/\1>/g
+  return input.replace(pattern, (_match, _tag, attrs, body) => {
+    const author = readJsxAttr(attrs, 'author') ?? 'Captain'
+    const date = readJsxAttr(attrs, 'date') ?? ''
+    const channel = readJsxAttr(attrs, 'channel') ?? ''
+    const source = readJsxAttr(attrs, 'source') ?? ''
+    const codeRef = readJsxAttr(attrs, 'codeRef') ?? ''
+    const bodyText = body.trim()
+    const attribution = [`— ${author}`, date, channel].filter(Boolean).join(', ')
+    const head = source ? `${attribution} (${source})` : attribution
+    const tail = codeRef ? `${head}; verified · Release 142: ${codeRef}` : head
+    return `\n\n> ${bodyText}\n>\n> ${tail}\n\n`
+  })
+}
+
 export function mdxToPlainText(raw: string): string {
-  return raw
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/^import\s+.*$/gm, ' ')
-    .replace(/<[^>\n]+>/g, ' ')
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/`([^`]+)`/g, '$1')
+  return decodeHtmlEntities(
+    shimAttributedQuotes(raw)
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/^import\s+.*$/gm, ' ')
+      .replace(/<[^>]+>/gs, ' ')
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/`([^`]+)`/g, '$1'),
+  )
     .replace(/\s+/g, ' ')
     .trim()
 }
