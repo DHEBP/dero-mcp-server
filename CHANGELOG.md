@@ -4,6 +4,34 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.4]
+
+### Fixed
+- **The bundled docs index silently stripped every code example from every
+  page.** `mdxToPlainText` deleted whole fenced code blocks
+  (`src/docs-parse.ts`), so the flagship `derod/rpc-api/daemon-rpc-api`
+  reference shipped with no `curl`, `DERO.GetInfo`, or `jsonrpc` — the source
+  has 75 such occurrences, the index had 0. An agent asking "how do I call
+  GetInfo" got prose with the command removed. The fence regex now preserves
+  the code contents (drops only the ``` and language tag); the flagship page's
+  indexed text went from ~6 KB to ~60 KB. A new `mustContain` content-fidelity
+  probe in `smoke:docs` asserts `curl`/`DERO.GetInfo`/`jsonrpc` survive on that
+  page so the regression can't silently return. Also folds in the docs refresh
+  from dero-docs @ f21a5c9 (146 → 147 pages).
+
+### Changed
+- **`docker compose` fails loudly when `DERO_MCP_VERSION` is unset** instead of
+  silently defaulting to a months-old pin (was `0.2.4`). Set it in
+  `deploy/.env`.
+- **`/health` now reports `docs_generated_at` and `docs_page_count`** so an
+  operator can see at a glance whether the live server is serving a current
+  docs bundle.
+
+### Docs
+- Added `docs/DOCS-BUNDLE-SYNC.md` — the previously-missing runbook for the
+  dero-docs → mcp-server → npm → VPS pipeline: what's automated vs. manual, the
+  secrets involved, and manual-recovery steps.
+
 ## [0.4.3]
 
 ### Fixed

@@ -12,11 +12,16 @@ const PRODUCT_SAMPLES: Array<{
   product: 'derod' | 'tela' | 'hologram' | 'deropay'
   slug: string
   searchQuery: string
+  // Code tokens that MUST survive mdx→plaintext. Guards against the
+  // fenced-code-stripping regression (the parser once dropped every code
+  // block, gutting the most-cited examples while pages still passed the
+  // length check). If these vanish, the parser is silently corrupting docs.
+  mustContain: string[]
 }> = [
-  { product: 'derod', slug: 'rpc-api/daemon-rpc-api', searchQuery: 'GetInfo json rpc' },
-  { product: 'tela', slug: 'tutorials/first-app', searchQuery: 'TELA first app' },
-  { product: 'hologram', slug: 'quick-start', searchQuery: 'simulator wallet' },
-  { product: 'deropay', slug: 'dero-pay/webhooks', searchQuery: 'HMAC webhook' },
+  { product: 'derod', slug: 'rpc-api/daemon-rpc-api', searchQuery: 'GetInfo json rpc', mustContain: ['curl', 'DERO.GetInfo', 'jsonrpc'] },
+  { product: 'tela', slug: 'tutorials/first-app', searchQuery: 'TELA first app', mustContain: [] },
+  { product: 'hologram', slug: 'quick-start', searchQuery: 'simulator wallet', mustContain: [] },
+  { product: 'deropay', slug: 'dero-pay/webhooks', searchQuery: 'HMAC webhook', mustContain: [] },
 ]
 
 function parseFirstTextJson(result: { content: Array<{ type: string; text?: string }> }): unknown {
@@ -94,7 +99,16 @@ async function main() {
         throw new Error(`bundled get_page failed for ${sample.slug}`)
       }
 
-      ok(`${sample.product}: search/get (${sample.slug})`)
+      // Content-fidelity: the cited code examples must survive parsing.
+      const missing = sample.mustContain.filter((tok) => !page.content.includes(tok))
+      if (missing.length > 0) {
+        throw new Error(
+          `${sample.slug}: code examples stripped from index — missing [${missing.join(', ')}]. ` +
+            `The mdx→plaintext parser is dropping fenced code.`,
+        )
+      }
+
+      ok(`${sample.product}: search/get (${sample.slug})${sample.mustContain.length ? ` +code[${sample.mustContain.length}]` : ''}`)
     }
 
     const badSlug = parseFirstTextJson(

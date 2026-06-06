@@ -40,8 +40,9 @@ import { timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createDeroMcpServer } from './server.js'
 import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
+import { docsIndexMeta } from './docs.js'
 
-const PACKAGE_VERSION = '0.4.3'
+const PACKAGE_VERSION = '0.4.4'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)
@@ -79,6 +80,7 @@ export async function startHttpServer(): Promise<void> {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
 
     if (url.pathname === '/health' && req.method === 'GET') {
+      const docsMeta = await docsIndexMeta()
       send(
         res,
         200,
@@ -89,6 +91,8 @@ export async function startHttpServer(): Promise<void> {
           transport: 'streamable-http',
           daemon_url: daemonUrl,
           daemon_source: resolution.source,
+          docs_generated_at: docsMeta.docs_generated_at,
+          docs_page_count: docsMeta.docs_page_count,
         }),
       )
       return
