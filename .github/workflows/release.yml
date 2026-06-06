@@ -185,6 +185,28 @@ jobs:
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
+      # npm + registry already published by the time we deploy, so a deploy
+      # failure leaves the package live but mcp.derod.org stale. Make the
+      # failure email actionable with the recovery path.
+      - name: Report deploy failure
+        if: failure()
+        run: |
+          {
+            echo "## ❌ VPS deploy failed — npm/registry are published, but mcp.derod.org is STALE"
+            echo ""
+            echo "**Version:** ${GITHUB_REF_NAME#v}"
+            echo "**Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "The package shipped; only the live server didn't update. Recover by"
+            echo "re-running just this job once the box is fixed:"
+            echo '\`gh run rerun ${{ github.run_id }} --failed\`'
+            echo ""
+            echo "Common causes: VPS disk/inodes, Docker build, or the health check."
+            echo "See \`docs/DOCS-BUNDLE-SYNC.md\` and \`deploy/README.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
   # ── GitHub Release: cut from the tag, notes pulled from CHANGELOG.md.
   github-release:
     needs: [npm-publish, registry-publish, deploy]
