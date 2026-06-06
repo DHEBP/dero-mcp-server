@@ -87,8 +87,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: npm
       - run: npm ci
-      # prepack (build:docs + build) runs automatically on publish; build here
-      # too so a failure surfaces before the irreversible publish call.
+      # The bundled docs index is committed (regenerated separately by
+      # refresh-docs-bundle.yml when dero-docs changes) and shipped via
+      # files[]. prepack only compiles TS — it must NOT rebuild the index,
+      # which needs the dero-docs monorepo absent here. Assert the committed
+      # index is present and non-trivial before the irreversible publish.
+      - name: Verify committed docs index ships
+        run: |
+          node -e "const i=require('./data/docs-index.json'); if(!i.page_count||i.page_count<1){console.error('docs-index.json has no pages');process.exit(1)} console.log('docs-index.json ok: '+i.page_count+' pages')"
+      # Compile here too so a build failure surfaces before the publish call.
       - run: npm run build
       - name: Ensure npm >= 11.5.1 (trusted publishing)
         run: |
