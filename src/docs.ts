@@ -118,6 +118,30 @@ function scorePage(page: DeroDocsPage, terms: string[]): number {
   return score
 }
 
+/**
+ * Lightweight docs-index freshness metadata for /health and dero_docs_list,
+ * so an operator can see at a glance whether the live server is serving a
+ * current bundle. Reads the bundled index header only; returns nulls when
+ * docs come from a filesystem override or the index is unreadable.
+ */
+export async function docsIndexMeta(): Promise<{
+  docs_generated_at: string | null
+  docs_page_count: number | null
+}> {
+  try {
+    const source = await resolveDocsSource()
+    if (source?.kind !== 'bundled') return { docs_generated_at: null, docs_page_count: null }
+    const raw = await fs.readFile(source.indexPath, 'utf8')
+    const parsed = JSON.parse(raw) as DocsIndexFile
+    return {
+      docs_generated_at: parsed.generated_at ?? null,
+      docs_page_count: parsed.page_count ?? parsed.pages?.length ?? null,
+    }
+  } catch {
+    return { docs_generated_at: null, docs_page_count: null }
+  }
+}
+
 export async function listDeroDocs(product?: DeroDocProduct) {
   const { source, pages } = await loadPages()
   const filtered = product ? pages.filter((page) => page.product === product) : pages

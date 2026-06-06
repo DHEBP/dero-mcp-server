@@ -145,7 +145,11 @@ function shimAttributedQuotes(input: string): string {
 export function mdxToPlainText(raw: string): string {
   return decodeHtmlEntities(
     shimAttributedQuotes(raw)
-      .replace(/```[\s\S]*?```/g, ' ')
+      // Keep fenced-code CONTENTS (curl/RPC/install examples are the most
+      // valuable thing an agent can cite); drop only the ``` fence and the
+      // optional language tag. Deleting the whole block silently stripped
+      // every code example from every page.
+      .replace(/```[\w-]*\n?([\s\S]*?)```/g, ' $1 ')
       .replace(/^import\s+.*$/gm, ' ')
       .replace(/<[^>]+>/gs, ' ')
       .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
