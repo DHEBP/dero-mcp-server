@@ -24,6 +24,7 @@
     "build": "tsc",
     "build:docs": "npx tsx scripts/build-docs-index.ts",
     "release:docs-check": "npm run build:docs && npm run smoke:docs && npm run build",
+    "release:docs": "npx tsx scripts/release-docs.ts",
     "start": "node dist/index.js",
     "dev": "node --import tsx src/index.ts",
     "prepack": "npm run build",
