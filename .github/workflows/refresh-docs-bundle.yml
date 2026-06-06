@@ -89,14 +89,33 @@ jobs:
             **Trigger:** ${{ steps.meta.outputs.source }}
 
             ## After merge
-            1. Bump patch version in `package.json` and `server.json`
-            2. `npm publish --otp=...`
-            3. `mcp-publisher publish`
+            Cut a release so the new index reaches npm + mcp.derod.org:
+            bump the version, add a CHANGELOG line, then `git tag vX.Y.Z && git push --tags`.
+            See `docs/DOCS-BUNDLE-SYNC.md`.
 
             ## Test plan
             - [x] `npm run build:docs`
-            - [x] `npm run smoke:docs`
+            - [x] `npm run smoke:docs` (incl. code-fidelity probes)
             - [ ] Review page count diff in `data/docs-index.json`
           labels: |
             docs
             automation
+
+      # Make a failed refresh loud: GitHub emails on a failed run; this summary
+      # tells you WHAT broke + links the run so the email is actionable.
+      - name: Report failure
+        if: failure()
+        run: |
+          {
+            echo "## ❌ Docs bundle refresh failed"
+            echo ""
+            echo "**Source:** ${{ steps.meta.outputs.source }}"
+            echo "**dero-docs ref:** \`${{ steps.meta.outputs.ref }}\`"
+            echo "**Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "The bundled docs index was NOT updated. Likely causes:"
+            echo "- \`build:docs\` failed (dero-docs structure changed, or a parser error)"
+            echo "- \`smoke:docs\` failed (e.g. the code-fidelity probe — index lost code examples)"
+            echo ""
+            echo "Recover: see \`docs/DOCS-BUNDLE-SYNC.md\` → Manual recovery."
+          } >> "$GITHUB_STEP_SUMMARY"
