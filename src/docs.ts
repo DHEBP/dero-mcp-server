@@ -185,7 +185,16 @@ export async function searchDeroDocs(args: SearchArgs) {
   }
 }
 
-export async function getDeroDocPage(params: { product?: DeroDocProduct; slug: string }) {
+// Per-call content cap. Long pages (e.g. /captain at ~75k chars) need to be
+// fetched in slices to stay LLM-context-friendly; callers paginate via offset
+// using `content_truncated` + `next_offset` in the response.
+const PAGE_CONTENT_CHUNK = 60000
+
+export async function getDeroDocPage(params: {
+  product?: DeroDocProduct
+  slug: string
+  offset?: number
+}) {
   const slug = normalizeSlug(params.slug)
   if (!slug) throw new Error('DERO docs get page requires a non-empty slug')
 
@@ -203,6 +212,11 @@ export async function getDeroDocPage(params: { product?: DeroDocProduct; slug: s
     )
   }
 
+  const total = target.plainText.length
+  const offset = Math.max(0, Math.min(params.offset ?? 0, total))
+  const end = Math.min(offset + PAGE_CONTENT_CHUNK, total)
+  const truncated = end < total
+
   return {
     ...sourceMeta(source),
     product: target.product,
@@ -212,7 +226,11 @@ export async function getDeroDocPage(params: { product?: DeroDocProduct; slug: s
     canonical_url: target.canonicalUrl,
     last_updated: target.lastUpdated,
     headings: target.headings,
-    content: target.plainText.slice(0, 20000),
+    content: target.plainText.slice(offset, end),
+    content_offset: offset,
+    content_length: total,
+    content_truncated: truncated,
+    next_offset: truncated ? end : null,
     source_path: target.sourcePath,
   }
 }
