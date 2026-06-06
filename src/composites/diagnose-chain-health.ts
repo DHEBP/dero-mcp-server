@@ -45,10 +45,24 @@ type DaemonInfo = {
   stableheight?: number
   height?: number
   network?: string
+  testnet?: boolean
   version?: string
   difficulty?: number | string
   total_supply?: number | string
   tx_pool_size?: number
+}
+
+/**
+ * Mainnet derod returns `network: ""` and signals the chain via the
+ * `testnet` boolean instead. Resolve a human-readable network label from
+ * whichever field is populated — never fabricate "mainnet" from a blank
+ * string alone, or a testnet node with an empty `network` would be
+ * mislabeled. Returns null only when neither field tells us anything.
+ */
+function resolveNetwork(info: DaemonInfo): string | null {
+  if (info.network && info.network.trim()) return info.network
+  if (typeof info.testnet === 'boolean') return info.testnet ? 'testnet' : 'mainnet'
+  return null
 }
 
 type DaemonHeight = {
@@ -91,6 +105,7 @@ function summarizeChainHealth(
   }
 
   const lagDepth = info.topoheight - info.stableheight
+  const network = resolveNetwork(info)
   signals.push({ key: 'topoheight', value: info.topoheight })
   signals.push({ key: 'stableheight', value: info.stableheight })
   signals.push({
@@ -98,7 +113,7 @@ function summarizeChainHealth(
     value: lagDepth,
     note: 'topoheight minus stableheight; values above 50 suggest the node is catching up',
   })
-  if (info.network) signals.push({ key: 'network', value: info.network })
+  if (network) signals.push({ key: 'network', value: network })
   if (info.version) signals.push({ key: 'version', value: info.version })
 
   if (height && typeof height.topoheight === 'number' && height.topoheight !== info.topoheight) {
@@ -119,7 +134,7 @@ function summarizeChainHealth(
     )
   } else {
     narrativeParts.push(
-      `Chain appears healthy on ${info.network ?? 'unknown network'} (version ${info.version ?? 'unknown'}): topoheight ${info.topoheight}, stableheight ${info.stableheight}, lag depth ${lagDepth}.`,
+      `Chain appears healthy on ${network ?? 'unknown network'} (version ${info.version ?? 'unknown'}): topoheight ${info.topoheight}, stableheight ${info.stableheight}, lag depth ${lagDepth}.`,
     )
   }
 
@@ -174,7 +189,7 @@ export async function diagnoseChainHealth(rpc: DeroDaemonRpc, args: DiagnoseInpu
           topoheight: info.topoheight,
           stableheight: info.stableheight ?? null,
           height: info.height ?? null,
-          network: info.network ?? null,
+          network: resolveNetwork(info),
           version: info.version ?? null,
           difficulty: info.difficulty ?? null,
           total_supply: info.total_supply ?? null,

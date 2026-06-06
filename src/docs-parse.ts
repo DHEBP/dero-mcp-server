@@ -93,9 +93,14 @@ export function extractHeadings(markdown: string): string[] {
  * containing `&amp;` (MDX-escaped `&`) reach MCP consumers as literal "&amp;".
  */
 function decodeHtmlEntities(input: string): string {
+  // Guard codepoints: String.fromCodePoint throws RangeError on values past
+  // U+10FFFF, which would abort the whole doc index on one malformed entity.
+  // Out-of-range entities pass through as their literal source text.
+  const fromCp = (cp: number, raw: string) =>
+    cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : raw
   return input
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (m, code) => fromCp(Number(code), m))
+    .replace(/&#x([0-9a-fA-F]+);/g, (m, hex) => fromCp(parseInt(hex, 16), m))
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, '<')

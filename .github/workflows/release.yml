@@ -1,0 +1,203 @@
+name: Release
+
+# Tag-triggered release pipeline. Push a v* tag to publish everywhere:
+#   git tag v0.4.3 && git push origin v0.4.3
+#
+# Pipeline (each stage gates the next):
+#   verify  → tag must equal package.json version, full test suite green
+#   npm     → keyless OIDC publish + provenance (no token; trusted publisher
+#             configured on npmjs.com for repo DHEBP/dero-mcp-server + release.yml)
+#   registry→ mcp-publisher publish via github-oidc (keyless)
+#   deploy  → ssh to the VPS, pin DERO_MCP_VERSION to this release, redeploy
+#   release → GitHub Release with the CHANGELOG section as notes
+#
+# Auth model: OIDC everywhere except the VPS (SSH key secrets, unavoidable).
+# Required repo secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY, DEPLOY_PORT.
+# One-time npmjs.com setup: package access → trusted publisher → GitHub Actions,
+#   owner dhebp, repo dero-mcp-server, workflow release.yml.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Gate: the tag must match the committed version, and the full suite
+  #    (the same one CI runs) must pass before anything irreversible ships.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package.json=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG does not match package.json version $PKG. Bump or retag."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - run: npm ci
+
+      - name: Version pin agrees across all refs
+        run: npm run check:server-json
+
+      - run: npx tsc --noEmit
+
+      - run: npm run build
+
+      - run: npm run check:mcp-descriptions
+      - run: npm run check:citations
+      - run: npm run check:curve-fixtures
+      - run: npm run check:proof-roundtrip
+      - run: npm run check:tx-parse
+      - run: npm run check:forge-demo
+
+      - name: Smoke + flow tests
+        env:
+          DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
+        run: |
+          npm run smoke:mcp
+          npm run smoke:docs
+          npm run test:flows
+          npm run test:composites
+
+  # ── npm: keyless OIDC publish. No NODE_AUTH_TOKEN — trusted publishing
+  #    issues a short-lived credential and stamps provenance automatically.
+  npm-publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC: lets the runner prove its identity to npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+      - run: npm ci
+      # prepack (build:docs + build) runs automatically on publish; build here
+      # too so a failure surfaces before the irreversible publish call.
+      - run: npm run build
+      - name: Ensure npm >= 11.5.1 (trusted publishing)
+        run: |
+          npm install -g npm@latest
+          # Fail loudly if the upgrade didn't take — otherwise OIDC publish
+          # errors are cryptic instead of "npm too old".
+          node -e "const v=require('child_process').execSync('npm -v').toString().trim();const[a,b]=v.split('.').map(Number);if(a<11||(a===11&&b<5)){console.error('npm '+v+' < 11.5.1');process.exit(1)}console.log('npm '+v+' ok')"
+      - name: Publish to npm (OIDC + provenance)
+        run: npm publish --provenance --access public
+
+  # ── MCP registry: keyless OIDC. mcp-publisher reads server.json; the
+  #    io.github.DHEBP/* namespace is verified against the repo identity.
+  #    Runs after npm because the registry validates the npm version exists.
+  registry-publish:
+    needs: npm-publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate server.json namespace
+        run: |
+          NAME="$(node -p "require('./server.json').name")"
+          echo "server.json name: $NAME"
+          case "$NAME" in
+            io.github.DHEBP/*) echo "namespace ok" ;;
+            *) echo "::error::server.json name '$NAME' is not under the io.github.DHEBP/* namespace"; exit 1 ;;
+          esac
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Authenticate (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish to MCP registry
+        run: ./mcp-publisher publish
+
+  # ── Deploy: refresh the VPS config, pin DERO_MCP_VERSION to this release,
+  #    rebuild. The container installs dero-mcp-server@<version> from npm, so
+  #    this MUST run after npm-publish (enforced via needs).
+  deploy:
+    needs: [npm-publish, registry-publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redeploy mcp.derod.org
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          # ssh-action does NOT forward step-level env: into the remote shell.
+          # Vars must be named here to reach the script.
+          envs: GITHUB_REF_NAME
+          script: |
+            set -euo pipefail
+            VERSION="${GITHUB_REF_NAME#v}"
+            cd /opt/dero-mcp-server
+            git pull origin main
+            cd deploy
+            # Pin the live container to the version just published to npm.
+            # Operate on the real .env (compose reads it), creating it from the
+            # template on first deploy if absent.
+            [ -f .env ] || cp .env.example .env
+            if grep -q '^DERO_MCP_VERSION=' .env; then
+              sed -i "s|^DERO_MCP_VERSION=.*|DERO_MCP_VERSION=${VERSION}|" .env
+            else
+              echo "DERO_MCP_VERSION=${VERSION}" >> .env
+            fi
+            docker compose up -d --build mcp
+            # Give the container a moment, then assert it reports the new version.
+            sleep 5
+            curl -fsS "http://127.0.0.1:8787/health" | grep -q "\"version\":\"${VERSION}\"" \
+              && echo "live server reports ${VERSION}" \
+              || { echo "::error::health check did not report ${VERSION}"; exit 1; }
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
+  # ── GitHub Release: cut from the tag, notes pulled from CHANGELOG.md.
+  github-release:
+    needs: [npm-publish, registry-publish, deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract this version's CHANGELOG section
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Pull the block between "## [VERSION]" and the next "## [".
+          # index() does a LITERAL match — the [ ] in "[0.4.3]" are regex
+          # metacharacters, so a `~` regex match would silently find nothing.
+          awk -v v="## [${VERSION}]" '
+            index($0, v) == 1 {f=1; next}
+            f && index($0, "## [") == 1 {exit}
+            f {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          LINES=$(wc -l < RELEASE_NOTES.md)
+          echo "Extracted ${LINES} lines of notes"
+          if [ "${LINES}" -eq 0 ]; then
+            echo "::error::No CHANGELOG section found for ${VERSION}"; exit 1
+          fi
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file RELEASE_NOTES.md

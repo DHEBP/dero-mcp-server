@@ -203,6 +203,11 @@ export function parseTransaction(hex: string): ParsedTransaction {
   const blid = cur.readBytes(32)
   const assetCount = cur.readUvarint()
   if (assetCount < 1n) throw new Error('tx-parse: asset_count < 1')
+  // Bound the payload loop by the protocol max so a corrupt/hostile uvarint
+  // gives a clear error instead of a cryptic EOF after over-reading.
+  if (assetCount > BigInt(PAYLOAD_LIMIT)) {
+    throw new Error(`tx-parse: asset_count ${assetCount} exceeds protocol maximum ${PAYLOAD_LIMIT}`)
+  }
 
   const payloads: ParsedPayload[] = []
   for (let i = 0n; i < assetCount; i++) payloads.push(parsePayload(cur))

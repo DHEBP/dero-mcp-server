@@ -41,7 +41,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createDeroMcpServer } from './server.js'
 import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
 
-const PACKAGE_VERSION = '0.4.1'
+const PACKAGE_VERSION = '0.4.3'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)

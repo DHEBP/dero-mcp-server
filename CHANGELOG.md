@@ -4,6 +4,47 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.3]
+
+### Fixed
+- **`diagnose_chain_health` mislabeled the network.** Mainnet `derod` returns
+  `network: ""` and signals the chain via the `testnet` boolean, so the
+  narrative rendered "Chain appears healthy on  (version…)" with a double space
+  and `chain.network: null`, and the `network` signal was dropped entirely. A
+  new `resolveNetwork()` helper derives `mainnet`/`testnet` from the `testnet`
+  boolean when the string is blank — never fabricating "mainnet" from an empty
+  string alone (a testnet node with a blank `network` would otherwise be
+  mislabeled).
+- **`audit_chain_artifact_claim` reward formatting dropped atomic precision.**
+  `(reward / 100_000).toFixed(3)` truncated DERO's 5-decimal amounts *and*
+  rounded: a per-miniblock reward of `30750` atoms rendered as `0.308` (a value
+  never on-chain) instead of `0.30750`. This narrative feeds the inflation-claim
+  audit, where 5-digit fidelity is the deliverable. Now formatted via integer
+  math (`floor` + `% 100_000` padded to 5).
+- **Version self-report drift.** The MCP handshake version, the HTTP
+  `PACKAGE_VERSION`, and the `deploy/.env.example` default lagged behind
+  `package.json` / `server.json`, so the running server advertised a stale
+  version to clients. All six references are now pinned together and gated by
+  `check:server-json`.
+- **`rpc.ts` lost specific daemon errors on non-2xx responses.** The HTTP status
+  was checked before the JSON-RPC body was parsed, so a daemon (or proxy)
+  returning a non-2xx status with a JSON-RPC error body (e.g. `-32098` DVM
+  compile) surfaced as a generic `HTTP {status}` error. The body is now parsed
+  first; the raw HTTP error is a fallback only when the body is not a usable
+  JSON-RPC error.
+- **`cborDecode` silently accepted trailing bytes.** The existing `done()` check
+  was never called, so a `deroproof…` string with valid CBOR followed by junk
+  decoded as if clean. It now throws `cbor: trailing bytes after root value`.
+
+### Changed
+- **Input hardening on user-supplied surfaces.** `forge_demo_proof`'s `tx_hex`
+  gained a `.max(100_000)` bound (real DERO txs are well under 10 KB of hex) to
+  prevent unbounded allocation; `tx-parse` now rejects an `asset_count` above the
+  protocol maximum (`PAYLOAD_LIMIT = 145`) with a clear error instead of a
+  cryptic EOF; and `docs-parse` validates numeric HTML-entity codepoints before
+  `String.fromCodePoint`, passing out-of-range entities through as literal text
+  rather than throwing a `RangeError` that would abort the whole doc index.
+
 ## [0.4.2]
 
 ### Fixed
