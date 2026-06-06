@@ -195,15 +195,16 @@ Input Requirements (CRITICAL):
 
 Output: ranked matches with \`title\`, \`slug\`, \`headings\`, \`excerpt\`, \`canonical_url\`, and \`score\`.`,
 
-  dero_docs_get_page: `Get a single bundled docs page by slug, with full plain-text content and headings.
+  dero_docs_get_page: `Get a single bundled docs page by slug, with plain-text content and headings.
 
 When to call: AFTER dero_docs_search has returned a candidate slug, OR when you have a known slug from a prior citation. PREFER dero_docs_search first when you only have a topic in mind.
 
 Input Requirements (CRITICAL):
 - \`slug\` MUST be a non-empty doc slug relative to pages/ (e.g. \`rpc-api/daemon-rpc-api\`, \`tutorials/first-app\`, \`dero-pay/quick-start\`).
 - \`product\` is OPTIONAL but RECOMMENDED to disambiguate identical slugs across docs sites (\`derod\`, \`tela\`, \`hologram\`, \`deropay\`).
+- \`offset\` is OPTIONAL. Long pages (the Captain archive, deep RPC references) are returned in 60000-char chunks; if \`content_truncated\` is true in the response, call again with \`offset: next_offset\` to fetch the next chunk.
 
-Output: \`{ product, slug, title, headings, content, canonical_url, last_updated, source_path }\`. Content is truncated at 20000 chars; if you need more, narrow with section anchors.`,
+Output: \`{ product, slug, title, headings, content, content_offset, content_length, content_truncated, next_offset, canonical_url, last_updated, source_path }\`. \`content_length\` is the total page size; \`content_truncated\` + \`next_offset\` signal whether to paginate.`,
 
   dero_docs_list: `List indexed bundled docs pages across all four products with slugs, titles, and canonical URLs.
 

@@ -702,10 +702,18 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
         product: deroDocProductSchema
           .optional()
           .describe('Optional product scope to disambiguate duplicate slugs'),
+        offset: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            'Byte offset into the page plaintext. Use 0 (or omit) for the first chunk; pass next_offset from a prior response to continue reading a long page.',
+          ),
       },
     }),
-    withStructuredErrors('dero_docs_get_page', async ({ slug, product }) =>
-      getDeroDocPage({ slug, product })),
+    withStructuredErrors('dero_docs_get_page', async ({ slug, product, offset }) =>
+      getDeroDocPage({ slug, product, offset })),
   )
 
   server.registerTool(
