@@ -154,7 +154,11 @@ jobs:
             set -euo pipefail
             VERSION="${GITHUB_REF_NAME#v}"
             cd /opt/dero-mcp-server
-            git pull origin main
+            # Deterministic: make the checkout EXACTLY match origin/main, ignoring
+            # any local drift on the box (a `git pull` aborts on local edits).
+            # .env is gitignored, so the live config + auth token are untouched.
+            git fetch origin main
+            git reset --hard origin/main
             cd deploy
             # Pin the live container to the version just published to npm.
             # Operate on the real .env (compose reads it), creating it from the
@@ -166,11 +170,18 @@ jobs:
               echo "DERO_MCP_VERSION=${VERSION}" >> .env
             fi
             docker compose up -d --build mcp
-            # Give the container a moment, then assert it reports the new version.
-            sleep 5
-            curl -fsS "http://127.0.0.1:8787/health" | grep -q "\"version\":\"${VERSION}\"" \
-              && echo "live server reports ${VERSION}" \
-              || { echo "::error::health check did not report ${VERSION}"; exit 1; }
+            # The mcp service is expose-only (Caddy fronts it), so 8787 is not on
+            # the host — probe health INSIDE the container's namespace, and poll
+            # to tolerate Node's startup time.
+            CID="$(docker compose ps -q mcp)"
+            ok=
+            for i in $(seq 1 15); do
+              if docker exec "$CID" wget -qO- http://127.0.0.1:8787/health 2>/dev/null | grep -q "\"version\":\"${VERSION}\""; then
+                ok=1; echo "live server reports ${VERSION} (attempt $i)"; break
+              fi
+              sleep 2
+            done
+            [ -n "$ok" ] || { echo "::error::health check did not report ${VERSION} after retries"; docker logs --tail 30 "$CID" || true; exit 1; }
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
