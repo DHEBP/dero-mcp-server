@@ -67,6 +67,7 @@ export const forgeDemoProofInputSchema = {
   tx_hex: z
     .string()
     .min(2)
+    .max(100_000, 'tx_hex exceeds 50KB (100k hex chars); real DERO txs are well under 10KB')
     .optional()
     .describe(
       'Raw TX bytes as hex (skip the daemon round-trip). Mutually exclusive with tx_hash. When provided, ring_receiver_address is omitted from the response (the hex carries publickey pointers, not full addresses).',

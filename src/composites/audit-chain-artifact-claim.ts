@@ -188,7 +188,13 @@ function buildNarrative(
 
   if (chainFacts?.block_header) {
     const h = chainFacts.block_header
-    const reward = typeof h.reward === 'number' ? (h.reward / 100_000).toFixed(3) : 'n/a'
+    // DERO is 5-decimal (1 DERO = 100,000 atomic units). Format via integer
+    // math so all 5 fractional digits survive — toFixed(3) silently dropped
+    // atomic precision, which matters on the inflation-claim audit path.
+    const reward =
+      typeof h.reward === 'number'
+        ? `${Math.floor(h.reward / 100_000)}.${(h.reward % 100_000).toString().padStart(5, '0')}`
+        : 'n/a'
     parts.push(
       `Block topoheight=${h.topoheight ?? '?'} hash=${(h.hash ?? '').slice(0, 16)}… reward=${reward} DERO txcount=${h.txcount ?? '?'}.`,
     )

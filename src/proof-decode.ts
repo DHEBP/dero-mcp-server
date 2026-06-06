@@ -226,7 +226,9 @@ class CborReader {
 export function cborDecode(bytes: Uint8Array): unknown {
   const r = new CborReader(bytes)
   const v = r.read()
-  // Trailing bytes are not expected in a DERO arguments payload.
+  // Trailing bytes are not expected in a DERO arguments payload; reject them
+  // so a padded/crafted proof string is not silently accepted as clean.
+  if (!r.done()) throw new Error('cbor: trailing bytes after root value')
   return v
 }
 

@@ -34,19 +34,26 @@ export async function deroJsonRpc<T = unknown>(
       signal: controller.signal,
     })
     const text = await res.text()
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`)
-    }
-    let json: JsonRpcResponse<T>
+    // Parse the body before honoring the HTTP status: a daemon (or proxy) can
+    // return a JSON-RPC error with a non-2xx status, and that body carries the
+    // specific error code (e.g. -32098 DVM compile) we want to surface. Fall
+    // back to a raw HTTP error only when the body is not a usable JSON-RPC error.
+    let json: JsonRpcResponse<T> | undefined
     try {
       json = JSON.parse(text) as JsonRpcResponse<T>
     } catch {
-      throw new Error(`Invalid JSON from node: ${text.slice(0, 200)}`)
+      json = undefined
     }
-    if (json.error) {
+    if (json?.error) {
       throw new Error(
         `RPC error ${json.error.code}: ${json.error.message}${json.error.data != null ? ` ${JSON.stringify(json.error.data)}` : ''}`,
       )
+    }
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`)
+    }
+    if (json === undefined) {
+      throw new Error(`Invalid JSON from node: ${text.slice(0, 200)}`)
     }
     return json.result as T
   } finally {
