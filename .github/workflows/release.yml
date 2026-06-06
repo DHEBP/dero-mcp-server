@@ -154,7 +154,11 @@ jobs:
             set -euo pipefail
             VERSION="${GITHUB_REF_NAME#v}"
             cd /opt/dero-mcp-server
-            git pull origin main
+            # Deterministic: make the checkout EXACTLY match origin/main, ignoring
+            # any local drift on the box (a `git pull` aborts on local edits).
+            # .env is gitignored, so the live config + auth token are untouched.
+            git fetch origin main
+            git reset --hard origin/main
             cd deploy
             # Pin the live container to the version just published to npm.
             # Operate on the real .env (compose reads it), creating it from the
