@@ -4,6 +4,66 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.5]
+
+### Added
+- **TELA on-chain tooling — two new tools take TELA from docs-only to a
+  read-only builder surface.** `tela_inspect` fetches a SCID and parses it as a
+  TELA-INDEX-1 app manifest or a TELA-DOC-1 file contract (auto-detected),
+  enumerating the full ordered `DOC1..DOCn` list, mods, commit/version history,
+  and an honest immutability note; non-TELA SCIDs return `kind: not_tela`
+  (a success, not an error). `tela_get_doc_content` extracts a DOC's actual
+  file content from the contract's DVM comment block, with offset pagination
+  and `.gz`-compression flagging. Both read the raw `DERO.GetSC` stringkeys
+  directly via a new shared parser (`src/tela-parse.ts`) so a large manifest's
+  DOC list is not truncated by the 50-key surface cap. Total tools: 28 → 30.
+
+### Changed
+- **`explain_smart_contract` is now TELA-aware.** TELA contracts are detected
+  *before* the token/registry heuristics, fixing a misclassification where a
+  TELA contract's `EXISTS("nameHdr")` made it register as a name registry. The
+  `kind` union gains `tela_index` and `tela_doc`, and TELA contracts now cite
+  the TELA spec pages.
+- **Docs search rewritten from substring matching to a BM25F scorer.** The old
+  binary `.includes()` scorer (no tokenization, stopwords, term frequency, or
+  length normalization) ranked the wrong pages for real questions — e.g.
+  "dero vs monero" matched the word "vs" across 144 of 147 pages. The new
+  scorer adds word-boundary tokenization (incl. hyphenated standard names like
+  `TELA-INDEX-1`), a curated stoplist, per-field length normalization (which
+  ends the Captain-archive keyword-sponge problem), and IDF weighting so rare
+  discriminating terms steer ranking. The previously-unused `description` field
+  is now scored, and excerpts are query-centered. `recommend_docs_path` gains a
+  narrow beginner-intent nudge that surfaces the "Understanding DERO"
+  orientation page. Computed in-process at load time — no index-format change.
+
+### Fixed
+- **`explain_smart_contract` / `dero_get_sc` no longer overflow host token
+  limits** on large registries. The name service's 22,619 stored keys produced
+  a ~413 KB response (rejected by MCP hosts) on the very SCID the tool docs
+  recommend as the known-good example. State-variable maps are now capped at a
+  sampled 50 keys with `*_total` / `*_truncated` markers.
+- **Tool failures now set `isError: true`** at the protocol level, so MCP hosts
+  that branch on the flag recognize a failed call (the structured
+  `ok:false`/`_meta.error` body is unchanged).
+- **Two MCP prompt arguments could never validate.** `reference_topoheight`
+  (`z.number()`) and `include_breakdown` (`z.boolean()`) were declared with
+  non-string zod types, but prompt arguments arrive as strings; they now coerce
+  correctly.
+- **Metadata drift across the front door.** README version, tool/resource/prompt
+  counts, Node floor, and the registry description were stale; all corrected and
+  the surface counts are now guarded by `check:server-json`.
+
+### Distribution
+- **The live `mcp.derod.org` streamable-HTTP endpoint is now published in the
+  registry** via a `remotes` entry in `server.json`.
+
+### Tests
+- New offline guards wired into CI: `check:tela-parse` (21 TELA-parser fixture
+  assertions, incl. a >50-DOC INDEX proving cap-bypass and a registry-is-not-TELA
+  case) and `check:docs-ranking` (the 6 confirmed search cases as a before/after
+  regression harness). A live `tela_inspect` false-positive guard asserts the
+  22,619-key name registry classifies as `not_tela`.
+
 ## [0.4.4]
 
 ### Fixed
