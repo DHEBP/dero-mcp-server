@@ -4,6 +4,30 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.6]
+
+### Fixed
+- **`tela_inspect` now decodes hex-encoded stored values.** `DERO.GetSC`
+  returns smart-contract string-key *values* hex-encoded, which the TELA spec's
+  plain-text examples obscured. Inspecting a real mainnet TELA app therefore
+  returned the app name as `43727970746f2068616d6d6572` instead of
+  "Crypto hammer", the dURL and description as hex, and — because DOC SCID
+  values are the 128-char hex encoding of a 64-char SCID — flagged every DOC as
+  "malformed". A defensive `decodeScValue` now hex-decodes any value that
+  decodes to printable UTF-8 (leaving counters, binary, and already-plain
+  values untouched), DOC SCIDs are decoded before validation (no more false
+  malformed flags), the app name falls back to `var_nameHdr`, and
+  `telaVersion` / `likes` / `dislikes` are surfaced. Verified live against the
+  `c-hammer2-site.tela` and `cipherchess.tela` apps.
+
+### Tests
+- `check:tela-parse` gains a hex-encoded fixture (F8) modeled on the live
+  "Crypto hammer" app, and the `flow-tela-inspect-real-scid` flow test now runs
+  by default against a real mainnet TELA INDEX (overridable via `DERO_TELA_SCID`)
+  and asserts the decode — converting the offline-only parser proof into a
+  live-chain regression. `check:server-json` now also guards the server.json
+  description against the MCP registry's 100-char limit.
+
 ## [0.4.5]
 
 ### Added

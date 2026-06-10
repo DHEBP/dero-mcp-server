@@ -416,19 +416,45 @@ async function flowTelaInspectNotTela(client: Client): Promise<void> {
     `OK  flow-tela-inspect-not-tela (kind=not_tela, stringkeys_total=${payload.observed?.stringkeys_total ?? '?'})`,
   )
 
-  // Optional: if a real TELA SCID is provided, assert it parses as a TELA kind.
-  const telaScid = process.env.DERO_TELA_SCID
-  if (telaScid && /^[0-9a-fA-F]{64}$/.test(telaScid)) {
+  // Live happy-path guard: inspect a REAL mainnet TELA INDEX and assert the
+  // full parse, including hex-decoding of stored values (DERO.GetSC returns
+  // string-key values hex-encoded). Defaults to the "Crypto hammer" app
+  // (c-hammer2-site.tela); override with DERO_TELA_SCID. This converts the
+  // offline fixtures into a real-chain regression for the decode path.
+  const REAL_TELA_INDEX = 'f4ef31f2a8359c49313ae9cb2bf8a81a088af41fe086d0a6c1b7d815055edb8d'
+  const telaScid = process.env.DERO_TELA_SCID || REAL_TELA_INDEX
+  if (/^[0-9a-fA-F]{64}$/.test(telaScid)) {
     const r2 = await client.callTool({ name: 'tela_inspect', arguments: { scid: telaScid } })
     const p2 = parseFirstTextJson(
       r2 as { content: Array<{ type: string; text?: string }> },
-    ) as { kind?: string }
-    if (p2.kind !== 'tela_index' && p2.kind !== 'tela_doc') {
-      throw new Error(`tela_inspect: DERO_TELA_SCID expected tela_index|tela_doc, got "${p2.kind}"`)
+    ) as {
+      kind?: string
+      index?: {
+        name?: string
+        durl?: string
+        docs?: Array<{ scid?: string; malformed?: boolean }>
+        parse_notes?: string[]
+      }
     }
-    console.log(`OK  flow-tela-inspect-real-scid (kind=${p2.kind})`)
-  } else {
-    console.log('SKIP flow-tela-inspect-real-scid (set DERO_TELA_SCID=<64hex of a TELA INDEX/DOC> to exercise)')
+    if (p2.kind !== 'tela_index' && p2.kind !== 'tela_doc') {
+      throw new Error(`tela_inspect: ${telaScid} expected tela_index|tela_doc, got "${p2.kind}"`)
+    }
+    // Default SCID: assert the decode actually ran (readable name + dURL, valid
+    // non-malformed DOC SCID, no false malformed note). Skip these field
+    // assertions for a user-supplied override (we don't know its contents).
+    if (!process.env.DERO_TELA_SCID && p2.kind === 'tela_index') {
+      const idx = p2.index
+      const docOk = idx?.docs?.[0]?.malformed === false && /^[0-9a-f]{64}$/.test(idx?.docs?.[0]?.scid ?? '')
+      const decoded = !!idx?.name && !/^[0-9a-f]+$/.test(idx.name) && (idx.durl ?? '').endsWith('.tela')
+      if (!decoded) throw new Error(`tela_inspect: stored values not hex-decoded (name=${idx?.name}, durl=${idx?.durl})`)
+      if (!docOk) throw new Error(`tela_inspect: DOC SCID not decoded/validated (got ${idx?.docs?.[0]?.scid})`)
+      if (idx?.parse_notes?.some((n) => n.includes('64-hex'))) {
+        throw new Error('tela_inspect: false malformed-DOC note on a valid live INDEX')
+      }
+      console.log(`OK  flow-tela-inspect-real-scid (kind=tela_index, name="${idx?.name}", durl=${idx?.durl}, decoded ✓)`)
+    } else {
+      console.log(`OK  flow-tela-inspect-real-scid (kind=${p2.kind})`)
+    }
   }
 }
 

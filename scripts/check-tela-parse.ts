@@ -130,6 +130,36 @@ check('F7 empty code → embedded false, no throw', extEmpty.embedded === false,
 const clsEmpty = classifyTela(undefined, '')
 check('F7 undefined keys → not_tela, no throw', clsEmpty.kind === 'not_tela', '')
 
+// --- Fixture 8: REAL hex-encoded values (DERO.GetSC returns string-key values
+// hex-encoded). Modeled on the live "Crypto hammer" app (f4ef31f2…). The parser
+// must decode header text AND the double-hex DOC SCID. ---
+const enc = (s: string): string => Buffer.from(s, 'utf8').toString('hex')
+const realScid = 'f85b2995308ce5c486e4539d91b3e6ee048aaea179ccdfb104efa592c41072d9'
+const hexIndexKeys: Record<string, unknown> = {
+  nameHdr: '1',
+  var_header_name: enc('Crypto hammer'),
+  var_header_description: enc('Dero is the crypto hammer that will destroy the monetary system'),
+  dURL: enc('c-hammer2-site.tela'),
+  mods: enc('vsoo'),
+  telaVersion: enc('1.1.0'),
+  likes: enc('5'),
+  dislikes: enc('1'),
+  owner: enc('dero1qyjrv7hqstqgzw8eu5nnh2a8gf9sxttq800ksy43w2vj7ed4swn7uqgdhsv66'),
+  DOC1: enc(realScid), // double-hex: 128 chars decoding to the 64-char SCID
+}
+const idx8 = parseTelaIndex(hexIndexKeys, {})
+check('F8 decodes hex var_header_name', idx8.name === 'Crypto hammer', JSON.stringify(idx8.name))
+check('F8 decodes hex dURL', idx8.durl === 'c-hammer2-site.tela', JSON.stringify(idx8.durl))
+check('F8 decodes hex mods', idx8.mods.length === 1 && idx8.mods[0] === 'vsoo', idx8.mods.join(','))
+check('F8 decodes double-hex DOC SCID + NOT malformed', idx8.docs[0]?.scid === realScid && idx8.docs[0]?.malformed === false, `scid=${idx8.docs[0]?.scid?.slice(0, 16)} malformed=${idx8.docs[0]?.malformed}`)
+check('F8 no malformed-DOC parse_note', !idx8.parse_notes.some((n) => n.includes('64-hex')), idx8.parse_notes.join('; '))
+check('F8 surfaces telaVersion + likes/dislikes', idx8.tela_version === '1.1.0' && idx8.likes === 5 && idx8.dislikes === 1, `v=${idx8.tela_version} likes=${idx8.likes} dislikes=${idx8.dislikes}`)
+check('F8 decodes hex owner to dero address', idx8.owner?.startsWith('dero1qyjrv7hq') === true, JSON.stringify(idx8.owner?.slice(0, 16)))
+// var_nameHdr fallback (app 2 "Cipher Chess" stored its name there, not var_header_name)
+const altNameKeys: Record<string, unknown> = { dURL: enc('cipherchess.tela'), DOC1: enc(realScid), var_nameHdr: enc('Cipher Chess Standalone') }
+const idx8b = parseTelaIndex(altNameKeys, {})
+check('F8 name falls back to var_nameHdr', idx8b.name === 'Cipher Chess Standalone', JSON.stringify(idx8b.name))
+
 process.stdout.write('\n')
 if (failed) {
   process.stderr.write('[check:tela-parse] FAIL — TELA parser fixture regressed.\n')

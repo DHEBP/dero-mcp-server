@@ -49,6 +49,9 @@ export type TelaIndexParsed = {
   version_history: { commit: number; txid: string }[]
   current_commit_hash: string | null
   owner: string | null
+  tela_version: string | null
+  likes: number | null
+  dislikes: number | null
   /** GetSC does not expose ringsize, so updateability cannot be derived. */
   updateable: 'unknown'
   updateable_note: string
@@ -83,10 +86,45 @@ const UPDATEABLE_NOTE =
   '> 2 = permanently immutable), which DERO.GetSC does not expose. Cannot be ' +
   'determined from chain state here; check the install transaction ringsize.'
 
-/** Null-tolerant string read from a stringkeys map. Returns null for missing/non-string. */
+/**
+ * DERO.GetSC returns stored STRING-key values hex-encoded. A TELA app's
+ * var_header_name "Crypto hammer" comes back as "43727970746f2068616d6d6572",
+ * and a DOC SCID comes back as the 128-char hex encoding of its 64-char hex
+ * string. This decodes such values back to text.
+ *
+ * Defensive: only decodes when the value is even-length hex that decodes to
+ * printable UTF-8 (no control chars / replacement chars); otherwise returns the
+ * value unchanged. So already-plain values, short counters, and binary blobs
+ * pass through untouched and we never throw or corrupt a value.
+ */
+function decodeScValue(value: unknown): string | null {
+  if (typeof value !== 'string') return value == null ? null : String(value)
+  const v = value
+  if (v.length === 0) return ''
+  if (v.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(v)) return v
+  try {
+    const decoded = Buffer.from(v, 'hex').toString('utf8')
+    // Reject if decoding produced control chars or U+FFFD (not real text).
+    if (/[\u0000-\u0008\u000e-\u001f\ufffd]/.test(decoded)) return v
+    return decoded
+  } catch {
+    return v
+  }
+}
+
+/** Null-tolerant, hex-decoded string read from a stringkeys map. */
 function readStr(stringkeys: Record<string, unknown> | undefined, key: string): string | null {
-  const v = stringkeys?.[key]
-  return typeof v === 'string' ? v : null
+  if (!stringkeys || !(key in stringkeys)) return null
+  return decodeScValue(stringkeys[key])
+}
+
+/** Null-tolerant non-negative integer read (number, numeric string, or decoded). */
+function readUint(stringkeys: Record<string, unknown> | undefined, key: string): number | null {
+  if (!stringkeys || !(key in stringkeys)) return null
+  const raw = stringkeys[key]
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  const s = decodeScValue(raw)
+  return s !== null && /^\d+$/.test(s) ? Number(s) : null
 }
 
 function keySet(map: Record<string, unknown> | undefined): Set<string> {
@@ -156,9 +194,10 @@ export function parseTelaIndex(
   const notes: string[] = []
   const sk = stringkeys ?? {}
 
-  const name = readStr(sk, 'var_header_name')
+  // Real contracts store the name under var_header_name OR var_nameHdr.
+  const name = readStr(sk, 'var_header_name') ?? readStr(sk, 'var_nameHdr')
   const durl = readStr(sk, 'dURL')
-  if (!name) notes.push('Missing var_header_name (INDEX app name).')
+  if (!name) notes.push('Missing app name (var_header_name / var_nameHdr).')
   if (!durl) notes.push('Missing dURL (app identifier).')
 
   const modsRaw = readStr(sk, 'mods') ?? ''
@@ -168,13 +207,14 @@ export function parseTelaIndex(
     .filter(Boolean)
 
   // Enumerate ALL DOCn keys directly from the raw map, ordered by index.
+  // Values are hex-encoded SCIDs (128 hex chars decoding to a 64-char hex
+  // SCID), so decode first, then validate.
   const docs: TelaDocRef[] = []
   for (const key of Object.keys(sk)) {
     const m = DOC_KEY.exec(key)
     if (!m) continue
     const position = Number(m[1])
-    const value = sk[key]
-    const scid = typeof value === 'string' ? value : String(value ?? '')
+    const scid = decodeScValue(sk[key]) ?? ''
     const malformed = !SCID_HEX.test(scid)
     docs.push({ position, key, scid, is_entrypoint: position === 1, malformed })
   }
@@ -202,6 +242,11 @@ export function parseTelaIndex(
   }
   version_history.sort((a, b) => a.commit - b.commit)
 
+  // Optional metadata seen on real INDEX contracts (not in the base spec).
+  const tela_version = readStr(sk, 'telaVersion')
+  const likes = readUint(sk, 'likes')
+  const dislikes = readUint(sk, 'dislikes')
+
   return {
     name,
     description: readStr(sk, 'var_header_description'),
@@ -214,6 +259,9 @@ export function parseTelaIndex(
     version_history,
     current_commit_hash: readStr(sk, 'hash'),
     owner: readStr(sk, 'owner'),
+    tela_version,
+    likes,
+    dislikes,
     updateable: 'unknown',
     updateable_note: UPDATEABLE_NOTE,
     parse_notes: notes,
