@@ -44,6 +44,9 @@ jobs:
       - name: Docs smoke probes
         run: npm run smoke:docs
 
+      - name: Docs ranking guard (offline)
+        run: npm run check:docs-ranking
+
       - name: Run flow tests
         run: npm run test:flows
         env:

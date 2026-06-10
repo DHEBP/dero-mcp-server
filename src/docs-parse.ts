@@ -37,6 +37,77 @@ export type DocsIndexFile = {
   pages: DeroDocsPage[]
 }
 
+// ---------------- Search tokenization ----------------
+//
+// One shared tokenizer for both indexing and queries so the two stay
+// symmetric — a page and a query that mention the same concept must produce
+// the same tokens. Used by the BM25F scorer in docs.ts. The tokenizer is the
+// structural fix for the old substring scorer's failures: word-boundary
+// matching (so `i` no longer matches inside "private", `vs` no longer matches
+// "Claims vs. Evidence"), standard-name handling (so `TELA-INDEX-1` is a real
+// searchable token), and a curated stoplist.
+
+/**
+ * Curated stoplist: closed-class English plus a few low-signal connectors.
+ * Deliberately short. `vs` is LOAD-BEARING — it was literal-matching
+ * comparison-titled pages ("Claims vs. Evidence") and ranking them top for
+ * "dero vs monero". Do NOT add concept words like `new`/`start`/`about`:
+ * the recommend_docs_path beginner-intent nudge depends on them surviving.
+ * Any edit here must re-run `npm run check:docs-ranking`.
+ */
+export const DOCS_STOPWORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'and', 'the', 'or', 'but', 'if', 'then', 'else', 'of', 'to', 'in',
+  'on', 'at', 'by', 'for', 'with', 'as', 'is', 'are', 'was', 'were', 'be',
+  'been', 'being', 'it', 'its', 'this', 'that', 'these', 'those', 'i', 'me',
+  'my', 'we', 'our', 'you', 'your', 'he', 'she', 'they', 'them', 'their',
+  'do', 'does', 'did', 'done', 'have', 'has', 'had', 'can', 'could', 'should',
+  'would', 'will', 'shall', 'may', 'might', 'must', 'how', 'what', 'when',
+  'where', 'who', 'why', 'which', 'much', 'many', 'some', 'any', 'anyone',
+  'see', 'get', 'got', 'so', 'than', 'too', 'very', 'just', 'into', 'from',
+  'vs', 'versus', 'about',
+])
+
+/**
+ * Standard-name shape: contains a digit (tela-index-1) or is a multi-part
+ * hyphenated identifier (dvm-basic, account-based). For these we emit the
+ * joined token AND the split parts so both "TELA-INDEX-1" and "tela index"
+ * find the spec page.
+ */
+function isStandardName(chunk: string): boolean {
+  return /\d/.test(chunk) || /^[a-z]+(?:-[a-z0-9]+)+$/.test(chunk)
+}
+
+/**
+ * Tokenize text for search. Lowercase, word-boundary match keeping interior
+ * hyphens, expand standard-names to joined + parts, drop length-1 noise
+ * (except pure digits), and remove stopwords. Pure and deterministic.
+ *
+ * `keepStopwords` is used only by the query-path empty-fallback so a
+ * pure-stopword query ("how to") still yields a non-empty, deterministic set.
+ */
+export function tokenizeForSearch(text: string, keepStopwords = false): string[] {
+  const out: string[] = []
+  const matches = (text || '').toLowerCase().match(/[a-z0-9][a-z0-9-]*/g) ?? []
+  for (const rawChunk of matches) {
+    const chunk = rawChunk.replace(/^-+|-+$/g, '')
+    if (!chunk) continue
+    const parts: string[] = []
+    if (chunk.includes('-')) {
+      if (isStandardName(chunk)) parts.push(chunk)
+      for (const p of chunk.split('-')) if (p) parts.push(p)
+    } else {
+      parts.push(chunk)
+    }
+    for (const tok of parts) {
+      // Drop length-1 noise (the `i`/`in`-substring problem) but keep digits.
+      if (tok.length < 2 && !/^\d$/.test(tok)) continue
+      if (!keepStopwords && DOCS_STOPWORDS.has(tok)) continue
+      out.push(tok)
+    }
+  }
+  return out
+}
+
 export function normalizeSlug(input: string): string {
   return input.trim().replace(/^\/+/, '').replace(/\/+$/, '')
 }

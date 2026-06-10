@@ -40,12 +40,24 @@
 import { z } from 'zod'
 import {
   DERO_DOC_PRODUCTS,
+  getDeroDocPage,
   searchDeroDocs,
   type DeroDocProduct,
 } from '../docs.js'
 import { buildDeroCitation, type DeroCitation } from '../citations.js'
 
 const PRODUCT_HINT_BOOST = 1.5
+
+// Concept-intro nudge: when an intent reads as a beginner asking "what is
+// DERO / where do I start", the canonical orientation page (basics/about) is
+// not token-dense on the query words and loses to advanced, jargon-heavy
+// pages. Detect conceptual-beginner intent and lift ONLY the about explainer.
+// Deliberately narrow — NOT all basics/*, NOT overview/quick-start (those
+// flood other products' landing pages). CI-guarded by check:docs-ranking.
+const CONCEPT_INTENT_REGEX =
+  /\bwhat is\b|\bnew to\b|\bunderstand\b|\blearn about\b|\bgetting started\b|\bget started\b|where (?:do|should) i (?:start|begin)|\bbrand new\b|\bcompletely new\b|\bbeginner\b/i
+const ABOUT_SLUG_REGEX = /(?:^|\/)about$/
+const CONCEPT_INTRO_BOOST = 2.2
 
 export const recommendDocsPathInputSchema = {
   intent: z
@@ -117,16 +129,18 @@ export function rankRecommendations(
 ): Recommendation[] {
   const out: Recommendation[] = []
   const seen = new Set<string>()
+  const conceptIntent = CONCEPT_INTENT_REGEX.test(intent)
 
   for (const [product, hits] of hitsByProduct) {
     for (const hit of hits) {
       const key = `${product}::${hit.slug}`
       if (seen.has(key)) continue
       seen.add(key)
-      const boost = product === productHint ? PRODUCT_HINT_BOOST : 1
-      const boostedScore = Math.round(hit.score * boost * 100) / 100
+      const hintBoost = product === productHint ? PRODUCT_HINT_BOOST : 1
+      const conceptBoost = conceptIntent && ABOUT_SLUG_REGEX.test(hit.slug) ? CONCEPT_INTRO_BOOST : 1
+      const boostedScore = Math.round(hit.score * hintBoost * conceptBoost * 100) / 100
       const topHeading = hit.headings[0]
-      const rationale = buildRationale(intent, product, hit.score, boost, topHeading)
+      const rationale = buildRationale(intent, product, hit.score, hintBoost, topHeading, conceptBoost > 1)
       out.push({
         product,
         slug: hit.slug,
@@ -139,7 +153,13 @@ export function rankRecommendations(
     }
   }
 
-  out.sort((a, b) => b.boosted_score - a.boosted_score)
+  // Tie-break on product/slug for deterministic ordering at equal scores.
+  out.sort((a, b) => {
+    if (b.boosted_score !== a.boosted_score) return b.boosted_score - a.boosted_score
+    const ak = `${a.product}/${a.slug}`
+    const bk = `${b.product}/${b.slug}`
+    return ak < bk ? -1 : ak > bk ? 1 : 0
+  })
   return out
 }
 
@@ -149,10 +169,12 @@ function buildRationale(
   rawScore: number,
   boost: number,
   topHeading: string | undefined,
+  conceptBoosted = false,
 ): string {
   const boostNote = boost > 1 ? ` (×${boost} product_hint boost applied)` : ''
+  const conceptNote = conceptBoosted ? ' (elevated as the beginner orientation page)' : ''
   const headingPart = topHeading ? ` Top heading: "${topHeading.slice(0, 80)}".` : ''
-  return `Match for "${intent.slice(0, 60)}" under product=${product} (raw score ${rawScore}${boostNote}).${headingPart}`
+  return `Match for "${intent.slice(0, 60)}" under product=${product} (raw score ${rawScore}${boostNote}${conceptNote}).${headingPart}`
 }
 
 function summarizeByProduct(recs: readonly Recommendation[]): ByProductSummary {
@@ -185,9 +207,45 @@ function citationsFromRecommendations(
     .map((rec) => buildDeroCitation(rec.product, rec.slug, rec.title))
 }
 
+const ORIENTATION_SLUG = 'basics/about'
+
+/**
+ * Ensure derod/basics/about is in the derod candidate pool. If already
+ * present, leave it. If absent, fetch its metadata and inject it with a base
+ * score floored at the current derod top hit (so the ×2.2 nudge lands it near
+ * the top without fabricating an out-of-range number). Silent no-op if the
+ * page can't be fetched (keeps the composite resilient).
+ */
+async function ensureOrientationCandidate(
+  hitsByProduct: Map<DeroDocProduct, readonly SearchHit[]>,
+): Promise<void> {
+  const derodHits = hitsByProduct.get('derod') ?? []
+  if (derodHits.some((h) => h.slug === ORIENTATION_SLUG)) return
+  try {
+    const page = await getDeroDocPage({ product: 'derod', slug: ORIENTATION_SLUG })
+    const topScore = derodHits[0]?.score ?? 1
+    const injected: SearchHit = {
+      product: 'derod',
+      slug: ORIENTATION_SLUG,
+      title: page.title,
+      description: page.description ?? undefined,
+      canonical_url: page.canonical_url,
+      headings: page.headings,
+      excerpt: page.content.slice(0, 420),
+      score: topScore,
+    }
+    hitsByProduct.set('derod', [injected, ...derodHits])
+  } catch {
+    // Orientation page unavailable (older bundle / fs override) — skip.
+  }
+}
+
 export async function recommendDocsPath(args: RecommendInput) {
   const intent = args.intent.trim()
-  const limitPerProduct = args.limit_per_product ?? 2
+  // Default 4 (was 2) so a concept-intro page that ranks mid-pack per product
+  // can still survive the per-product cut and reach the merge where the
+  // beginner-intent nudge promotes it.
+  const limitPerProduct = args.limit_per_product ?? 4
   const productHint = args.product_hint
 
   // Always fan out to all four products. `searchDeroDocs` shares an
@@ -204,6 +262,17 @@ export async function recommendDocsPath(args: RecommendInput) {
   )
 
   const hitsByProduct = new Map<DeroDocProduct, readonly SearchHit[]>(searches)
+
+  // On a clearly-beginner conceptual intent, GUARANTEE the canonical
+  // orientation page (derod/basics/about — "Understanding DERO") is a
+  // candidate. It's a short, high-signal page that BM25 length-norm pushes
+  // below long jargon-dense pages, so it often never reaches the merge for the
+  // nudge to act on. Inject it (floored at the derod top score) only when it's
+  // absent; the ×2.2 concept nudge in rankRecommendations then elevates it.
+  if (CONCEPT_INTENT_REGEX.test(intent)) {
+    await ensureOrientationCandidate(hitsByProduct)
+  }
+
   const recommended = rankRecommendations(intent, productHint, hitsByProduct)
 
   if (recommended.length === 0) {
