@@ -249,7 +249,7 @@ Input Requirements:
 
 Output: \`{ intent, product_hint, limit_per_product, recommended: [{ product, slug, title, canonical_url, score, boosted_score, rationale }], by_product: { derod | tela | hologram | deropay: { count, top_slug, top_score } }, related_docs: DeroCitation[] }\`. \`related_docs\` is the top-2 picks pre-built as citations the agent can drop straight into a response. On zero matches across every product the composite returns a structured \`_meta.error\` with code \`NO_DOCS_MATCH\` and a hint to rephrase or drop the product_hint.`,
 
-  explain_smart_contract: `Composite: fetch a DERO smart contract (code + variables + balances) and return its function surface, a classification of the contract pattern (token | registry | minimal | generic), a plain-language narrative, and curated DVM docs citations re-ordered so the most relevant page is first.
+  explain_smart_contract: `Composite: fetch a DERO smart contract (code + variables + balances) and return its function surface, a classification of the contract pattern (tela_index | tela_doc | token | registry | minimal | generic), a plain-language narrative, and curated DVM docs citations re-ordered so the most relevant page is first. TELA contracts (apps/files) are detected first and cite the TELA spec; for a deep TELA parse use tela_inspect.
 
 When to call: when the user wants to UNDERSTAND a smart contract — its functions, state shape, or which DVM concept to read about. PREFER this over chaining dero_get_sc with a docs lookup yourself: this composite already parses the DVM-BASIC source for function declarations, sorts stringkeys/uint64keys deterministically, and picks the right docs page from a heuristic so the agent does not have to learn DVM-BASIC syntax to summarize a contract.
 
@@ -257,7 +257,28 @@ Input Requirements:
 - \`scid\` is REQUIRED. Must be 64 hex chars (the smart contract id). Use \`0000…0001\` for the on-chain name registry as a known-good example.
 - \`topoheight\` is OPTIONAL. Provide to inspect the contract at a specific topo height; omit for latest tip.
 
-Output: \`{ scid, topoheight, kind, surface: { functions[], stringkeys[], uint64keys[], balances }, narrative, raw_code_length, has_code, related_docs }\`. \`kind\` is one of \`token | registry | minimal | generic\`. \`surface.functions\` items are \`{ name, args, returns }\`. \`has_code\` is false when the SCID is unknown or has no on-chain code; \`functions\` is then \`[]\` and the narrative explains the gap. \`raw_code_length\` is always present so the agent knows when to fall back to \`dero_get_sc\` for the full source.`,
+Output: \`{ scid, topoheight, kind, surface: { functions[], stringkeys[], uint64keys[], balances }, narrative, raw_code_length, has_code, related_docs }\`. \`kind\` is one of \`tela_index | tela_doc | token | registry | minimal | generic\`. \`surface.functions\` items are \`{ name, args, returns }\`. \`has_code\` is false when the SCID is unknown or has no on-chain code; \`functions\` is then \`[]\` and the narrative explains the gap. \`raw_code_length\` is always present so the agent knows when to fall back to \`dero_get_sc\` for the full source.`,
+
+  tela_inspect: `Composite: fetch a TELA contract by SCID (DERO.GetSC code + variables) and parse it as either a TELA-INDEX-1 app manifest or a TELA-DOC-1 file contract, auto-detecting which standard it is from the stored keys. TELA is DERO's on-chain web-app platform: an INDEX is the app manifest (like package.json) and DOCs are the individual files (HTML/CSS/JS) stored on chain.
+
+When to call: as the FIRST step whenever a user references a TELA SCID, a \`.tela\` dURL app, or asks "what is this TELA contract/app", "what files does this TELA app have", or "is this a TELA INDEX or DOC". PREFER this over dero_get_sc + manual parsing or explain_smart_contract: explain_smart_contract treats TELA contracts as generic DVM and its surface CAPS stored keys at 50, which silently drops DOCn entries on large manifests — tela_inspect reads the raw stringkeys directly so it enumerates ALL DOC references, and it decodes the TELA header/mods/commit schema the generic tool does not understand.
+
+Input Requirements:
+- \`scid\` is REQUIRED. Must be 64 hex chars (the TELA contract id).
+- \`topoheight\` is OPTIONAL. Provide to inspect at a specific topo height; omit for the latest committed state.
+
+Output: a discriminated union on \`kind\`. \`tela_index\` → \`{ scid, topoheight, kind, index: { name, description, icon, durl, mods[], docs:[{position, key, scid, is_entrypoint, malformed}], doc_count, commit, version_history[], current_commit_hash, owner, updateable:'unknown', updateable_note, parse_notes[] }, narrative, related_docs }\`. \`tela_doc\` → \`{ ..., doc: { filename, doc_type, sub_dir, durl, signature, content_embedded, code_size_bytes, immutable }, narrative, related_docs }\`. \`not_tela\` → \`{ ..., kind:'not_tela', reason, observed:{ stringkey_sample[], stringkeys_total, has_code, markers[] }, narrative }\` — returned (NOT an error) when the SCID is unknown or lacks TELA markers. Updateability cannot be derived from chain state (ringsize is not in GetSC) so it is honestly reported as 'unknown'.`,
+
+  tela_get_doc_content: `Composite: fetch the actual file content stored in a TELA-DOC-1 contract. A DOC's file (HTML/CSS/JS/...) lives inside a DVM-BASIC comment block in the contract code — NOT in a stored variable — so this tool fetches DERO.GetSC, confirms the SCID is a DOC, and extracts the file bytes. Large files paginate via offset.
+
+When to call: when a user wants to READ or inspect the actual code/markup a TELA app file holds (e.g. "show me the HTML of this TELA DOC", "what does this app's app.js contain"). Get DOC SCIDs from tela_inspect on an INDEX first. PREFER this over dero_get_sc: that returns the raw DVM contract wrapper; this extracts just the embedded file content and reports docType, size, and signature presence.
+
+Input Requirements:
+- \`scid\` is REQUIRED. Must be 64 hex chars and reference a TELA-DOC-1 contract (an INDEX or non-TELA SCID returns INVALID_INPUT with guidance).
+- \`offset\` is OPTIONAL. Byte offset into the extracted content; pass \`next_offset\` to read the next chunk of a large file.
+- \`topoheight\` is OPTIONAL. Omit for the latest committed state.
+
+Output: \`{ scid, topoheight, filename, doc_type, sub_dir, content_embedded, content, content_offset, content_length, content_truncated, next_offset, compressed, signature, signature_note, note, narrative, related_docs }\`. \`content\` is the extracted file bytes (a 60000-char chunk; paginate via \`next_offset\`), or null when content is not embedded (DocShard/STATIC/external). \`compressed\` is true for \`.gz\` filenames (bytes are gzip, not plaintext). The contract's author signature presence is reported but NOT cryptographically verified.`,
 
   diagnose_chain_health: `Composite: run a four-step chain (DERO.Ping → DERO.GetInfo → DERO.GetHeight → DERO.GetTxPool) and return a single narrative health report with chain metadata, mempool snapshot, machine-readable signals, and curated docs citations.
 

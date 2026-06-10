@@ -47,6 +47,9 @@ jobs:
       - name: Docs ranking guard (offline)
         run: npm run check:docs-ranking
 
+      - name: TELA parser guard (offline)
+        run: npm run check:tela-parse
+
       - name: Run flow tests
         run: npm run test:flows
         env:

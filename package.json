@@ -39,6 +39,7 @@
     "check:curve-fixtures": "npx tsx scripts/check-curve-fixtures.ts",
     "check:proof-roundtrip": "npx tsx scripts/check-proof-roundtrip.ts",
     "check:tx-parse": "npx tsx scripts/check-tx-parse.ts",
+    "check:tela-parse": "npx tsx scripts/check-tela-parse.ts",
     "check:forge-demo": "npx tsx scripts/check-forge-demo.ts",
     "check:server-json": "npx tsx scripts/check-server-json.ts",
     "check:docs-ranking": "npx tsx scripts/check-docs-ranking.ts",

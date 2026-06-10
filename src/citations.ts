@@ -219,6 +219,54 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       slug: 'dvm/create-deploy-use-smart-contract',
       title: 'Create, Deploy & Use a Smart Contract on DERO | Step-by-Step Tutorial',
     },
+    // TELA specs: elevated when the classifier detects a tela_index / tela_doc
+    // contract (the heuristic re-orders the matching spec to position 0).
+    {
+      product: 'tela',
+      slug: 'tela/tela-index-specification',
+      title: 'TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard',
+    },
+    {
+      product: 'tela',
+      slug: 'tela/tela-doc-specification',
+      title: 'TELA-DOC-1 Specification | Smart Contract Standard for File Storage',
+    },
+  ],
+  // tela_inspect curates both specs (so the matching one elevates per kind),
+  // plus dURL and Gnomon context for the builder.
+  tela_inspect: [
+    {
+      product: 'tela',
+      slug: 'tela/tela-index-specification',
+      title: 'TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard',
+    },
+    {
+      product: 'tela',
+      slug: 'tela/tela-doc-specification',
+      title: 'TELA-DOC-1 Specification | Smart Contract Standard for File Storage',
+    },
+    {
+      product: 'tela',
+      slug: 'advanced-features/durl-explained',
+      title: 'Understanding dURLs | Decentralized URL Identity & Resolution',
+    },
+    {
+      product: 'tela',
+      slug: 'tela-cli/gnomon-guide',
+      title: 'Gnomon Indexer Deep-Dive Guide | TELA Content Discovery and Indexing',
+    },
+  ],
+  tela_get_doc_content: [
+    {
+      product: 'tela',
+      slug: 'tela/tela-doc-specification',
+      title: 'TELA-DOC-1 Specification | Smart Contract Standard for File Storage',
+    },
+    {
+      product: 'tela',
+      slug: 'tela/tela-index-specification',
+      title: 'TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard',
+    },
   ],
 } as const
 

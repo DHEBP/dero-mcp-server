@@ -39,7 +39,7 @@ Before answering the first user question that needs DERO knowledge, read the MCP
 
 1. `dero://mcp/server-info` — server metadata, tool list, resource list, prompt names
 2. `dero://mcp/example-flows` — agent flow recipes (composites first, primitives second)
-3. `dero://mcp/composites` — full catalog of the 7 composite tools and when to use each
+3. `dero://mcp/composites` — full catalog of the 9 composite tools and when to use each
 4. `dero://mcp/safety-boundary` — read-only posture, excluded methods, write-path guidance
 
 These four resources document the canonical agent workflows. Skim them once per session.
@@ -77,6 +77,8 @@ The MCP exposes both **primitive** tools (one daemon RPC method per tool) and **
 | `trace_transaction_with_context` | get_transaction + (if SC install) get_sc | "what is this tx", "is this confirmed", "what contract did this deploy" |
 | `audit_chain_artifact_claim` | (varies) | Verify a chain-related claim end-to-end |
 | `dero_forge_demo_proof` | (varies) | Generate demo proof strings for testing |
+| `tela_inspect` | get_sc + manual TELA schema parsing | User references a TELA SCID / `.tela` app: "what is this TELA contract", "what files does this app have" (auto-detects INDEX vs DOC) |
+| `tela_get_doc_content` | get_sc + comment-block extraction | User wants the actual file content (HTML/CSS/JS) a TELA-DOC stores |
 
 Fall back to primitives only when the composite is unavailable or returns `_meta.error`.
 

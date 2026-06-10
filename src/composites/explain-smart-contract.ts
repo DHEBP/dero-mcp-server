@@ -33,6 +33,7 @@ import {
   type DeroGetScResult,
   type DeroScSurface,
 } from './_shared.js'
+import { classifyTela } from '../tela-parse.js'
 
 const SCID_HEX_REGEX = /^[0-9a-fA-F]{64}$/
 
@@ -58,8 +59,10 @@ const DVM_DOC_FUNDAMENTALS = 'dvm/smart-contract-fundamentals'
 const DVM_DOC_LANGUAGE = 'dvm/dvm-basic'
 const DVM_DOC_DEPLOY = 'dvm/create-deploy-use-smart-contract'
 const DVM_DOC_PLATFORM = 'dvm/dero-virtual-machine'
+const TELA_DOC_INDEX_SPEC = 'tela/tela-index-specification'
+const TELA_DOC_DOC_SPEC = 'tela/tela-doc-specification'
 
-type ContractKind = 'token' | 'registry' | 'minimal' | 'generic'
+type ContractKind = 'tela_index' | 'tela_doc' | 'token' | 'registry' | 'minimal' | 'generic'
 
 /**
  * Classify a contract from its surface + raw code so we can pick the
@@ -69,7 +72,17 @@ type ContractKind = 'token' | 'registry' | 'minimal' | 'generic'
 export function classifyContractAndPickDoc(
   surface: DeroScSurface,
   code: string,
+  rawStringkeys?: Record<string, unknown>,
 ): { kind: ContractKind; primarySlug: string } {
+  // TELA detection FIRST: a TELA contract's InitializePrivate contains
+  // `EXISTS("nameHdr")`, which the registry heuristic below would otherwise
+  // misclassify as a name registry. classifyTela keys on the TELA-specific
+  // markers (dURL/DOC1/docType/fileCheck) from both the raw stringkeys and the
+  // code literals, so it correctly distinguishes a TELA app from a registry.
+  const tela = classifyTela(rawStringkeys, code)
+  if (tela.kind === 'tela_index') return { kind: 'tela_index', primarySlug: TELA_DOC_INDEX_SPEC }
+  if (tela.kind === 'tela_doc') return { kind: 'tela_doc', primarySlug: TELA_DOC_DOC_SPEC }
+
   const functionNames = new Set(surface.functions.map((f) => f.name.toLowerCase()))
   const codeUpper = code.toUpperCase()
 
@@ -125,6 +138,8 @@ function buildNarrative(
   }
 
   const kindPhrase: Record<ContractKind, string> = {
+    tela_index: 'is a TELA-INDEX-1 application manifest (the on-chain entrypoint listing an app’s DOC files)',
+    tela_doc: 'is a TELA-DOC-1 file contract (stores a single on-chain web-app file)',
     token: 'has a token-style surface (transfer/asset operations)',
     registry: 'has a registry-style surface (Register/Lookup/EXISTS pattern)',
     minimal: 'is a minimal contract (Initialize-only or single function)',
@@ -153,7 +168,13 @@ export async function explainSmartContract(rpc: DeroDaemonRpc, args: ExplainInpu
   const raw = (await rpc<DeroGetScResult>('DERO.GetSC', params)) ?? {}
   const surface = extractScSurface(raw)
   const code = typeof raw.code === 'string' ? raw.code : ''
-  const { kind, primarySlug } = classifyContractAndPickDoc(surface, code)
+  // Pass the RAW (uncapped) stringkeys so TELA marker detection is not affected
+  // by extractScSurface's 50-key cap.
+  const rawStringkeys =
+    raw.stringkeys && typeof raw.stringkeys === 'object'
+      ? (raw.stringkeys as Record<string, unknown>)
+      : undefined
+  const { kind, primarySlug } = classifyContractAndPickDoc(surface, code, rawStringkeys)
   const responseTopoheight =
     typeof args.topoheight === 'number' && Number.isFinite(args.topoheight)
       ? args.topoheight

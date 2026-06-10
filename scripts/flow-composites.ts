@@ -158,7 +158,7 @@ type StructuredErrorPayload = {
 type ExplainSmartContractPayload = {
   scid?: string
   topoheight?: number | null
-  kind?: 'token' | 'registry' | 'minimal' | 'generic'
+  kind?: 'tela_index' | 'tela_doc' | 'token' | 'registry' | 'minimal' | 'generic'
   surface?: {
     functions?: Array<{ name: string; args?: string[]; returns?: string }>
     stringkeys?: string[]
@@ -353,7 +353,14 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
       `explain_smart_contract: narrative too short (${payload.narrative?.length ?? 0} < ${MIN_NARRATIVE_LENGTH})`,
     )
   }
-  if (payload.kind !== 'token' && payload.kind !== 'registry' && payload.kind !== 'minimal' && payload.kind !== 'generic') {
+  if (
+    payload.kind !== 'tela_index' &&
+    payload.kind !== 'tela_doc' &&
+    payload.kind !== 'token' &&
+    payload.kind !== 'registry' &&
+    payload.kind !== 'minimal' &&
+    payload.kind !== 'generic'
+  ) {
     throw new Error(`explain_smart_contract: unexpected kind "${payload.kind}"`)
   }
   if (!Array.isArray(payload.related_docs) || payload.related_docs.length === 0) {
@@ -378,6 +385,51 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
   console.log(
     `OK  flow-explain-name-registry (kind=${payload.kind}, functions=${payload.surface.functions.length}, stringkeys=${payload.surface.stringkeys?.length ?? 0}, narrative=${payload.narrative.length}ch, citations=${payload.related_docs.length}, primary=${payload.related_docs[0].slug})`,
   )
+}
+
+/**
+ * flow-tela-inspect-not-tela — live false-positive guard.
+ *
+ * Runs tela_inspect against the name registry (a real, always-present
+ * non-TELA contract whose InitializePrivate uses EXISTS()). Asserts kind is
+ * 'not_tela' — proving the TELA classifier does NOT mistake a registry for a
+ * TELA contract on live chain data. The real tela_index/tela_doc paths are
+ * exercised by the offline fixture suite (check:tela-parse) until a mainnet
+ * TELA SCID is pinned via DERO_TELA_SCID (optional, below).
+ */
+async function flowTelaInspectNotTela(client: Client): Promise<void> {
+  const result = await client.callTool({
+    name: 'tela_inspect',
+    arguments: { scid: NAME_REGISTRY_SCID },
+  })
+  const payload = parseFirstTextJson(
+    result as { content: Array<{ type: string; text?: string }> },
+  ) as { kind?: string; narrative?: string; observed?: { stringkeys_total?: number } }
+
+  if (payload.kind !== 'not_tela') {
+    throw new Error(`tela_inspect: name registry should be not_tela, got "${payload.kind}"`)
+  }
+  if (typeof payload.narrative !== 'string' || payload.narrative.length < 20) {
+    throw new Error('tela_inspect: not_tela narrative missing or too short')
+  }
+  console.log(
+    `OK  flow-tela-inspect-not-tela (kind=not_tela, stringkeys_total=${payload.observed?.stringkeys_total ?? '?'})`,
+  )
+
+  // Optional: if a real TELA SCID is provided, assert it parses as a TELA kind.
+  const telaScid = process.env.DERO_TELA_SCID
+  if (telaScid && /^[0-9a-fA-F]{64}$/.test(telaScid)) {
+    const r2 = await client.callTool({ name: 'tela_inspect', arguments: { scid: telaScid } })
+    const p2 = parseFirstTextJson(
+      r2 as { content: Array<{ type: string; text?: string }> },
+    ) as { kind?: string }
+    if (p2.kind !== 'tela_index' && p2.kind !== 'tela_doc') {
+      throw new Error(`tela_inspect: DERO_TELA_SCID expected tela_index|tela_doc, got "${p2.kind}"`)
+    }
+    console.log(`OK  flow-tela-inspect-real-scid (kind=${p2.kind})`)
+  } else {
+    console.log('SKIP flow-tela-inspect-real-scid (set DERO_TELA_SCID=<64hex of a TELA INDEX/DOC> to exercise)')
+  }
 }
 
 /**
@@ -1002,6 +1054,7 @@ async function main(): Promise<void> {
 
     await flowDiagnoseChainHealth(client)
     await flowExplainNameRegistry(client)
+    await flowTelaInspectNotTela(client)
     await flowRecommendDocsDeployTela(client)
     await flowRecommendDocsNoMatch(client)
     await flowEstimateDeployMinimal(client)

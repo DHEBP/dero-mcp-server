@@ -48,6 +48,9 @@ const EXPECTED_TOOLS = [
   'trace_transaction_with_context',
   'audit_chain_artifact_claim',
   'dero_forge_demo_proof',
+  // ---- TELA tools ----
+  'tela_inspect',
+  'tela_get_doc_content',
 ] as const
 
 const EXPECTED_RESOURCES = [

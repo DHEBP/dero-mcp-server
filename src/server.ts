@@ -39,6 +39,11 @@ import {
   traceTransactionWithContextInputSchema,
 } from './composites/trace-transaction-with-context.js'
 import { capRawScVariables } from './composites/_shared.js'
+import { telaInspect, telaInspectInputSchema } from './composites/tela-inspect.js'
+import {
+  telaGetDocContent,
+  telaGetDocContentInputSchema,
+} from './composites/tela-get-doc-content.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -785,6 +790,24 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   )
 
   server.registerTool(
+    'tela_inspect',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.tela_inspect,
+      inputSchema: telaInspectInputSchema,
+    }),
+    withStructuredErrors('tela_inspect', async (args) => telaInspect(rpc, args)),
+  )
+
+  server.registerTool(
+    'tela_get_doc_content',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.tela_get_doc_content,
+      inputSchema: telaGetDocContentInputSchema,
+    }),
+    withStructuredErrors('tela_get_doc_content', async (args) => telaGetDocContent(rpc, args)),
+  )
+
+  server.registerTool(
     'recommend_docs_path',
     readOnly({
       description: TOOL_DESCRIPTIONS.recommend_docs_path,
@@ -955,7 +978,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'dero_mcp_composites',
     'dero://mcp/composites',
     {
-      description: 'Catalog of the 5 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
+      description: 'Catalog of the 9 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
       mimeType: 'application/json',
     },
     async (uri) => ({
@@ -981,7 +1004,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
                   replaces: ['dero_get_sc + manual parsing + dero_docs_search'],
                   when_to_call: 'User wants to UNDERSTAND a contract (functions, state shape, what DVM concept to read about). NOT for raw variable inspection — use dero_get_sc for that.',
                   inputs: { scid: '64-char hex SCID', topoheight: 'optional number' },
-                  output_highlights: ['kind (token | registry | minimal | generic)', 'surface (functions, stringkeys, uint64keys, balances)', 'narrative', '1-4 curated DVM docs citations re-ranked for the contract pattern'],
+                  output_highlights: ['kind (tela_index | tela_doc | token | registry | minimal | generic)', 'surface (functions, stringkeys, uint64keys, balances)', 'narrative', '1-4 curated docs citations re-ranked for the contract pattern (TELA contracts cite the TELA spec)'],
                   error_codes: ['RPC_UNREACHABLE', 'RPC_INVALID_PARAMS'],
                 },
                 {
@@ -1008,6 +1031,39 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
                   output_highlights: ['confirmation (status, block_height, valid_block, in_pool)', 'kind (sc_install | transfer_or_invocation | coinbase | unknown)', 'ring (groups, first_group_size)', 'sc_install (scid + parsed surface) | null', 'raw_tx_hex_length', 'narrative', 'related_docs'],
                   scope_note: 'SC invocation arg decoding is NOT performed (would require the binary tx codec). SC INSTALL surface extraction IS performed inline because the source is embedded in the tx record.',
                   error_codes: ['TX_NOT_FOUND (retryable=true; daemon returns empty record on unknown hashes)', 'RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'audit_chain_artifact_claim',
+                  replaces: ['dero_get_info / dero_get_last_block_header / dero_decode_proof_string + manual claim verification'],
+                  when_to_call: 'User asks to verify a chain-related claim end-to-end (e.g. the 2022 inflation claim) with cited daemon state and docs.',
+                  inputs: { claim: 'claim text', include_forge_demo: 'optional boolean' },
+                  output_highlights: ['verdict', 'cited daemon state', 'optional forged demo proof', 'related_docs'],
+                  error_codes: ['INVALID_INPUT', 'RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'dero_forge_demo_proof',
+                  replaces: ['manual bn254 + CBOR + bech32 proof-string construction'],
+                  when_to_call: 'Generate a demo (display-layer) deroproof string for testing/teaching; never broadcasts or touches a wallet.',
+                  inputs: { target_amount: 'optional', tx_hex: 'optional (max 100k)' },
+                  output_highlights: ['forged_proof_string', 'self_check (verified)', 'context_note', 'related_docs'],
+                  error_codes: ['INVALID_INPUT'],
+                },
+                {
+                  name: 'tela_inspect',
+                  replaces: ['dero_get_sc + manual TELA-INDEX-1/DOC-1 schema parsing'],
+                  when_to_call: 'User references a TELA SCID or .tela app: "what is this TELA contract/app", "what files does it have", "is it an INDEX or DOC". Auto-detects the standard; reads RAW stringkeys so all DOCn enumerate (bypasses the 50-key surface cap).',
+                  inputs: { scid: '64-char hex SCID', topoheight: 'optional number' },
+                  output_highlights: ['kind (tela_index | tela_doc | not_tela)', 'index { name, durl, mods[], docs[], commit, version_history[] } | doc { filename, doc_type, signature, content_embedded }', 'narrative', 'related_docs'],
+                  scope_note: 'Updateability/ringsize is NOT in DERO.GetSC, so it is honestly reported as unknown. not_tela is a SUCCESS (not an error) for non-TELA SCIDs.',
+                  error_codes: ['RPC_UNREACHABLE', 'RPC_INVALID_PARAMS'],
+                },
+                {
+                  name: 'tela_get_doc_content',
+                  replaces: ['dero_get_sc + manual comment-block extraction from the contract code'],
+                  when_to_call: 'User wants the actual file content (HTML/CSS/JS) a TELA-DOC-1 stores. Get DOC SCIDs from tela_inspect on an INDEX first.',
+                  inputs: { scid: '64-char hex DOC SCID', offset: 'optional number (paginate large files)', topoheight: 'optional number' },
+                  output_highlights: ['content (60k-char chunk; paginate via next_offset)', 'filename, doc_type, sub_dir', 'compressed (.gz flag)', 'signature (presence only, not verified)', 'related_docs'],
+                  error_codes: ['INVALID_INPUT (SCID is not a TELA-DOC-1; hint points to tela_inspect)', 'RPC_UNREACHABLE'],
                 },
               ],
             },
