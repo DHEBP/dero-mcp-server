@@ -104,7 +104,18 @@ jobs:
           # errors are cryptic instead of "npm too old".
           node -e "const v=require('child_process').execSync('npm -v').toString().trim();const[a,b]=v.split('.').map(Number);if(a<11||(a===11&&b<5)){console.error('npm '+v+' < 11.5.1');process.exit(1)}console.log('npm '+v+' ok')"
       - name: Publish to npm (OIDC + provenance)
-        run: npm publish --provenance --access public
+        # Idempotent: if this exact version is already on npm (e.g. a re-run
+        # after a later stage like registry-publish failed), skip the publish
+        # instead of erroring on the duplicate, so the downstream registry /
+        # deploy / release stages can complete on a re-trigger.
+        run: |
+          PKG="$(node -p "require('./package.json').name")"
+          VER="$(node -p "require('./package.json').version")"
+          if npm view "${PKG}@${VER}" version >/dev/null 2>&1; then
+            echo "::notice::${PKG}@${VER} already on npm — skipping publish (idempotent re-run)."
+          else
+            npm publish --provenance --access public
+          fi
 
   # ── MCP registry: keyless OIDC. mcp-publisher reads server.json; the
   #    io.github.DHEBP/* namespace is verified against the repo identity.
