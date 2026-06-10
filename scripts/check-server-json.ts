@@ -109,6 +109,14 @@ async function checkSurfaceCounts(): Promise<boolean> {
   // server.json description must state the tool count, e.g. "28 tools".
   const descMatch = serverJson.match(/"description":\s*"([^"]*)"/)
   const desc = descMatch?.[1] ?? ''
+  // The MCP registry rejects a description over 100 chars with a 422 at publish
+  // time (learned the hard way on the 0.4.5 release). Catch it locally instead.
+  const REGISTRY_DESC_MAX = 100
+  checks.push({
+    label: `server.json description ≤ ${REGISTRY_DESC_MAX} chars (MCP registry limit)`,
+    ok: desc.length <= REGISTRY_DESC_MAX,
+    detail: `description is ${desc.length} chars; the registry rejects > ${REGISTRY_DESC_MAX}`,
+  })
   checks.push({
     label: `server.json description states ${toolCount} tools`,
     ok: new RegExp(`\\b${toolCount}\\s+tools\\b`).test(desc),
