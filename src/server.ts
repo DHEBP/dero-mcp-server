@@ -38,6 +38,7 @@ import {
   traceTransactionWithContext,
   traceTransactionWithContextInputSchema,
 } from './composites/trace-transaction-with-context.js'
+import { capRawScVariables } from './composites/_shared.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -55,14 +56,14 @@ const deroAddressSchema = z
 
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
 
-const DERO_RESOURCE_URIS = [
+export const DERO_RESOURCE_URIS = [
   'dero://mcp/server-info',
   'dero://mcp/safety-boundary',
   'dero://mcp/example-flows',
   'dero://mcp/composites',
 ] as const
 
-const DERO_PROMPT_NAMES = [
+export const DERO_PROMPT_NAMES = [
   'network_health_check',
   'inspect_smart_contract',
   'trace_transaction',
@@ -239,16 +240,23 @@ function classifyToolError(error: unknown): StructuredToolError {
 function toolError(tool: string, error: unknown) {
   const structured = classifyToolError(error)
   const raw = error instanceof Error ? error.message : String(error)
-  return toolText({
-    ok: false,
-    tool,
-    _meta: {
-      error: {
-        ...structured,
-        raw,
+  // `isError: true` flags the failure at the protocol level so MCP hosts and
+  // agent frameworks that branch on the flag (before parsing content) see the
+  // call as failed. The ok:false/_meta.error JSON body is unchanged and
+  // remains the source of the structured error code/hint.
+  return {
+    ...toolText({
+      ok: false,
+      tool,
+      _meta: {
+        error: {
+          ...structured,
+          raw,
+        },
       },
-    },
-  })
+    }),
+    isError: true as const,
+  }
 }
 
 function withStructuredErrors<TArgs extends Record<string, unknown> | undefined>(
@@ -535,6 +543,11 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       }
       if (topoheight !== undefined) params.topoheight = topoheight
       const result = (await rpc<Record<string, unknown>>('DERO.GetSC', params)) ?? {}
+      // Large registries (e.g. the name service's 22k+ stringkeys) would
+      // overflow host token limits if returned verbatim; cap the raw maps and
+      // mark what was elided. See capRawScVariables / SURFACE_KEY_CAP.
+      capRawScVariables(result, 'stringkeys')
+      capRawScVariables(result, 'uint64keys')
       const related_docs = relatedDocsFor('dero_get_sc')
       return { ...result, ...(related_docs ? { related_docs } : {}) }
     }),
@@ -1011,7 +1024,10 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     {
       description: 'Guide the model through a DERO daemon sync and health check using the diagnose_chain_health composite.',
       argsSchema: {
-        reference_topoheight: z
+        // MCP prompt arguments arrive as strings (the SDK validates raw
+        // string values against this schema with no coercion), so a plain
+        // z.number() can never validate. Coerce the string to a number here.
+        reference_topoheight: z.coerce
           .number()
           .int()
           .positive()
@@ -1145,7 +1161,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       description: 'Run gas pre-flight for a DVM-BASIC contract source via the estimate_deploy_cost composite (numeric estimate + plain-text breakdown + parsed surface).',
       argsSchema: {
         sc_source: z.string().min(20, 'Provide DVM-BASIC contract source (at minimum: a Function/End Function block)'),
-        include_breakdown: z.boolean().optional(),
+        // Prompt arguments are always strings, so a z.boolean() can never
+        // validate. Accept the string 'true' | 'false' and interpret below.
+        include_breakdown: z.enum(['true', 'false']).optional(),
       },
     },
     async ({ sc_source, include_breakdown }) => ({
@@ -1158,7 +1176,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
             text: [
               'Run a deploy pre-flight (gas estimate) for the DVM-BASIC source the user supplied. This is read-only; nothing is submitted to chain.',
               '',
-              `1) Call estimate_deploy_cost with the contract source as sc${include_breakdown === false ? ' and include_breakdown=false (caller does NOT want the plain-text gas notes)' : ' (include_breakdown defaults to true)'}.`,
+              `1) Call estimate_deploy_cost with the contract source as sc${include_breakdown === 'false' ? ' and include_breakdown=false (caller does NOT want the plain-text gas notes)' : ' (include_breakdown defaults to true)'}.`,
               '2) Quote estimate.gascompute, estimate.gasstorage, estimate.total, and the daemon\'s status string.',
               '3) If include_breakdown is true, read the breakdown.compute_note and breakdown.storage_note as plain-language explanations.',
               '4) Quote the parsed function surface (functions[].name) so the user can sanity-check the contract.',

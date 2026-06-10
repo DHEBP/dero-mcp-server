@@ -1,8 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
- * Drift guard for the dero-mcp-server version pin.
+ * Drift guard for the dero-mcp-server version pin AND the published
+ * tool/resource/prompt surface counts.
  *
- * The version appears in five places. They MUST agree. This guard
+ * The version appears in six places. They MUST agree. This guard
  * reads each and fails non-zero on mismatch — catches the silent drift
  * that happens when one forgets to update e.g. the .env.example after
  * bumping package.json.
@@ -15,12 +16,19 @@
  *   5. src/http-server.ts → PACKAGE_VERSION constant
  *   6. deploy/.env.example → DERO_MCP_VERSION=... default
  *
+ * It also asserts the human-facing surface counts (tools / resources /
+ * prompts) in server.json's registry description and README's "MCP Surface"
+ * section match the exported source-of-truth arrays — so adding a tool
+ * forces the docs to update or CI fails.
+ *
  * Run via `npm run check:server-json`.
  */
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DERO_TOOL_NAMES } from '../src/tool-descriptions.js'
+import { DERO_PROMPT_NAMES, DERO_RESOURCE_URIS } from '../src/server.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -83,6 +91,56 @@ const CHECKS: Check[] = [
   },
 ]
 
+/**
+ * Assert the human-facing surface counts in server.json and README match the
+ * exported arrays. Returns true on drift (so callers can fail the run).
+ */
+async function checkSurfaceCounts(): Promise<boolean> {
+  const toolCount = DERO_TOOL_NAMES.length
+  const resourceCount = DERO_RESOURCE_URIS.length
+  const promptCount = DERO_PROMPT_NAMES.length
+
+  const serverJson = await readFile(path.join(ROOT, 'server.json'), 'utf-8')
+  const readme = await readFile(path.join(ROOT, 'README.md'), 'utf-8')
+
+  type SurfaceCheck = { label: string; ok: boolean; detail: string }
+  const checks: SurfaceCheck[] = []
+
+  // server.json description must state the tool count, e.g. "28 tools".
+  const descMatch = serverJson.match(/"description":\s*"([^"]*)"/)
+  const desc = descMatch?.[1] ?? ''
+  checks.push({
+    label: `server.json description states ${toolCount} tools`,
+    ok: new RegExp(`\\b${toolCount}\\s+tools\\b`).test(desc),
+    detail: `expected "${toolCount} tools" in description`,
+  })
+
+  // README "MCP Surface" bullets must state all three counts.
+  checks.push({
+    label: `README "Tools (${toolCount})"`,
+    ok: new RegExp(`\\*\\*Tools \\(${toolCount}\\)`).test(readme),
+    detail: `expected "**Tools (${toolCount})" in README MCP Surface`,
+  })
+  checks.push({
+    label: `README "Resources (${resourceCount})"`,
+    ok: new RegExp(`\\*\\*Resources \\(${resourceCount}\\)`).test(readme),
+    detail: `expected "**Resources (${resourceCount})" in README MCP Surface`,
+  })
+  checks.push({
+    label: `README "Prompts (${promptCount})"`,
+    ok: new RegExp(`\\*\\*Prompts \\(${promptCount}\\)`).test(readme),
+    detail: `expected "**Prompts (${promptCount})" in README MCP Surface`,
+  })
+
+  process.stdout.write('\n[check:server-json] verifying surface counts (tools/resources/prompts)...\n\n')
+  let drift = false
+  for (const c of checks) {
+    process.stdout.write(`  ${c.ok ? '✓' : '✗'} ${c.label.padEnd(48)}${c.ok ? '' : ` — ${c.detail}`}\n`)
+    if (!c.ok) drift = true
+  }
+  return drift
+}
+
 async function main(): Promise<void> {
   const results: Array<{ check: Check; value: string | undefined; ok: boolean }> = []
   let canonical: string | undefined
@@ -122,10 +180,16 @@ async function main(): Promise<void> {
 
   if (anyFail) {
     process.stderr.write(`\n[check:server-json] FAIL — version drift. Canonical (first read) is ${canonical}. Update mismatched refs and rerun.\n`)
-    process.exit(1)
   }
 
-  process.stdout.write(`\n[check:server-json] OK — all 6 refs agree on ${canonical}.\n`)
+  const surfaceDrift = await checkSurfaceCounts()
+  if (surfaceDrift) {
+    process.stderr.write(`\n[check:server-json] FAIL — surface-count drift. Update server.json description / README "MCP Surface" to match the exported tool/resource/prompt arrays.\n`)
+  }
+
+  if (anyFail || surfaceDrift) process.exit(1)
+
+  process.stdout.write(`\n[check:server-json] OK — version pin agrees on ${canonical}; surface counts match.\n`)
 }
 
 main().catch((err) => {

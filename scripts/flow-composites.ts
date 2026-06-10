@@ -163,6 +163,10 @@ type ExplainSmartContractPayload = {
     functions?: Array<{ name: string; args?: string[]; returns?: string }>
     stringkeys?: string[]
     uint64keys?: string[]
+    stringkeys_total?: number
+    uint64keys_total?: number
+    stringkeys_truncated?: boolean
+    uint64keys_truncated?: boolean
     balances?: Record<string, number | string>
   }
   narrative?: string
@@ -294,6 +298,21 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
     name: 'explain_smart_contract',
     arguments: { scid: NAME_REGISTRY_SCID },
   })
+  // The name registry holds 22k+ stringkeys; an uncapped surface dump used to
+  // return a ~413KB payload that blows MCP host token limits on the very SCID
+  // this tool's description recommends as the known-good example. Assert the
+  // whole response stays well under that and that the surface reports the
+  // truncation honestly. See SURFACE_KEY_CAP in composites/_shared.ts.
+  const rawText = (result as { content: Array<{ type: string; text?: string }> }).content
+    .map((c) => c.text ?? '')
+    .join('')
+  const MAX_RESPONSE_CHARS = 50_000
+  if (rawText.length > MAX_RESPONSE_CHARS) {
+    throw new Error(
+      `explain_smart_contract: response too large (${rawText.length} > ${MAX_RESPONSE_CHARS} chars) — stringkeys cap regressed`,
+    )
+  }
+
   const payload = parseFirstTextJson(
     result as { content: Array<{ type: string; text?: string }> },
   ) as ExplainSmartContractPayload
@@ -301,6 +320,15 @@ async function flowExplainNameRegistry(client: Client): Promise<void> {
   if (payload.scid !== NAME_REGISTRY_SCID) {
     throw new Error(
       `explain_smart_contract: scid round-trip failed (got ${payload.scid ?? '<missing>'})`,
+    )
+  }
+  if (
+    payload.surface?.stringkeys_truncated !== true ||
+    typeof payload.surface?.stringkeys_total !== 'number' ||
+    payload.surface.stringkeys_total <= (payload.surface.stringkeys?.length ?? 0)
+  ) {
+    throw new Error(
+      'explain_smart_contract: name registry surface should report stringkeys_truncated with a larger stringkeys_total',
     )
   }
   if (!payload.has_code || typeof payload.raw_code_length !== 'number' || payload.raw_code_length < 100) {

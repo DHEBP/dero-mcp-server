@@ -164,9 +164,61 @@ export type DeroScSurface = {
   functions: DvmFunctionSignature[]
   stringkeys: string[]
   uint64keys: string[]
+  stringkeys_total: number
+  uint64keys_total: number
+  stringkeys_truncated: boolean
+  uint64keys_truncated: boolean
   balances: Record<string, number | string>
   raw_code_length: number
   has_code: boolean
+}
+
+/**
+ * Maximum number of state-variable keys surfaced per map. Real contracts
+ * like the on-chain name service hold tens of thousands of stringkeys
+ * (22,619 at time of writing), and an uncapped dump blows past every MCP
+ * host's token limit — turning the canonical `0000…0001` example into an
+ * unusable wall. The first N sorted keys are a deterministic, useful
+ * sample; `*_total` and `*_truncated` keep the response honest.
+ */
+export const SURFACE_KEY_CAP = 50
+
+/** Sort keys, take the first `SURFACE_KEY_CAP`, and report the full count. */
+function capKeys(map: Record<string, unknown> | undefined): {
+  keys: string[]
+  total: number
+  truncated: boolean
+} {
+  const all = map ? Object.keys(map).sort() : []
+  return {
+    keys: all.slice(0, SURFACE_KEY_CAP),
+    total: all.length,
+    truncated: all.length > SURFACE_KEY_CAP,
+  }
+}
+
+/**
+ * Bound a raw `DERO.GetSC` variable map (`stringkeys` / `uint64keys`) for the
+ * `dero_get_sc` primitive, which returns the daemon payload verbatim. A map
+ * over `SURFACE_KEY_CAP` entries is replaced by a sorted sample plus
+ * `<field>_total` / `<field>_truncated` siblings so the response stays under
+ * host token limits without losing the count signal. Maps at or under the cap
+ * pass through untouched (no markers added). Returns the patch to spread onto
+ * the result; the field is deleted and re-added as a sample when truncated.
+ */
+export function capRawScVariables(
+  result: Record<string, unknown>,
+  field: 'stringkeys' | 'uint64keys',
+): void {
+  const map = result[field]
+  if (!map || typeof map !== 'object') return
+  const entries = Object.entries(map as Record<string, unknown>).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  )
+  if (entries.length <= SURFACE_KEY_CAP) return
+  result[field] = Object.fromEntries(entries.slice(0, SURFACE_KEY_CAP))
+  result[`${field}_total`] = entries.length
+  result[`${field}_truncated`] = true
 }
 
 // DVM-BASIC function declaration:
@@ -204,8 +256,10 @@ function parseDvmFunctions(code: string): DvmFunctionSignature[] {
  * Behavior:
  *  - Returns `functions: []` when `code` is missing or the regex finds
  *    no Function declarations. Never throws on malformed code.
- *  - Sorts `stringkeys` / `uint64keys` alphabetically for deterministic
- *    output across invocations.
+ *  - Sorts `stringkeys` / `uint64keys` alphabetically and caps each at
+ *    `SURFACE_KEY_CAP` for deterministic, bounded output — large registries
+ *    would otherwise overflow MCP host token limits. `*_total` /
+ *    `*_truncated` report what was elided.
  *  - `balances` is passed through unchanged so callers can render asset
  *    balances; native DERO balance lives under `balance` on the raw
  *    payload and is left for callers to decide whether to surface.
@@ -213,8 +267,8 @@ function parseDvmFunctions(code: string): DvmFunctionSignature[] {
 export function extractScSurface(raw: DeroGetScResult | null | undefined): DeroScSurface {
   const code = typeof raw?.code === 'string' ? raw.code : ''
   const functions = code.length > 0 ? parseDvmFunctions(code) : []
-  const stringkeys = raw?.stringkeys ? Object.keys(raw.stringkeys).sort() : []
-  const uint64keys = raw?.uint64keys ? Object.keys(raw.uint64keys).sort() : []
+  const stringkeys = capKeys(raw?.stringkeys)
+  const uint64keys = capKeys(raw?.uint64keys)
   const balances: Record<string, number | string> = {}
   if (raw?.balances && typeof raw.balances === 'object') {
     for (const [scid, amount] of Object.entries(raw.balances)) {
@@ -225,8 +279,12 @@ export function extractScSurface(raw: DeroGetScResult | null | undefined): DeroS
   }
   return {
     functions,
-    stringkeys,
-    uint64keys,
+    stringkeys: stringkeys.keys,
+    uint64keys: uint64keys.keys,
+    stringkeys_total: stringkeys.total,
+    uint64keys_total: uint64keys.total,
+    stringkeys_truncated: stringkeys.truncated,
+    uint64keys_truncated: uint64keys.truncated,
     balances,
     raw_code_length: code.length,
     has_code: code.length > 0,

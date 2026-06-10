@@ -6,7 +6,7 @@
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.3.0` · **Transports:** `stdio` (default, npm package) · `streamable-http` (`--http`, for self-hosting)
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.4.4` · **Transports:** `stdio` (default, npm package) · `streamable-http` (`--http`, for self-hosting)
 
 ---
 
@@ -32,7 +32,7 @@ Get a working DERO MCP connection in under 5 minutes.
 
 ### What you need
 
-- **Node.js 18+** ([install](https://nodejs.org)) — verify with `node --version`.
+- **Node.js 20+** ([install](https://nodejs.org)) — verify with `node --version`.
 - **An MCP host** — Claude Desktop, Cursor, OpenCode, or ChatGPT with Custom Connectors. This walkthrough uses Claude Desktop; the JSON config below works identically in Cursor and OpenCode.
 - **Optional:** a local DERO daemon. If one is running on `127.0.0.1:10102`, the server detects and uses it automatically; otherwise it falls back to a public RPC, so it works with zero setup. Run your own for production — [how to](https://derod.org/basics/running-a-node.md).
 
@@ -133,7 +133,7 @@ For multi-step agent recipes, per-tool guidance, error contract, and the composi
 
 ## Requirements
 
-- Node.js **18+**
+- Node.js **20+**
 - A reachable DERO daemon with RPC enabled (local node or your own remote URL).
 
 ## Install & build
@@ -269,9 +269,9 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHE
 
 ## MCP Surface
 
-- **Tools (20):** daemon read/analysis methods + docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
-- **Resources (3):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`
-- **Prompts (3):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`
+- **Tools (28):** 21 daemon read/analysis primitives + 7 composites, including docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
+- **Resources (4):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`, `dero://mcp/composites`
+- **Prompts (5):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`, `find_dero_docs_for_intent`, `estimate_deploy_for_contract`
 
 ## Error Contract
 
@@ -305,8 +305,8 @@ Common `code` values:
 ## Roadmap
 
 - Optional wallet-RPC tools behind `DERO_ENABLE_WALLET_RPC=1` + separate URL.
-- Streamable HTTP transport for hosted MCP.
 - Stricter typing / OpenAPI-derived tool schemas.
+- TELA-aware contract tooling (INDEX/DOC inspection, on-chain app discovery).
 
 ## License
 

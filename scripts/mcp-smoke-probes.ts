@@ -187,6 +187,30 @@ async function main() {
     }
     console.log('OK  prompts/get     inspect_smart_contract')
 
+    // MCP prompt arguments are always strings. These two prompts take a
+    // numeric / boolean-shaped optional arg; their schemas must coerce the
+    // string form (z.coerce.number / z.enum('true','false')) or a
+    // spec-compliant client supplying them gets InvalidParams. Probe with the
+    // string values to lock the coercion in.
+    const promptWithNumberArg = await client.getPrompt({
+      name: 'network_health_check',
+      arguments: { reference_topoheight: '7000000' },
+    })
+    if (!promptWithNumberArg.messages?.length) {
+      throw new Error('prompts/get network_health_check rejected string reference_topoheight')
+    }
+    const promptWithBoolArg = await client.getPrompt({
+      name: 'estimate_deploy_for_contract',
+      arguments: {
+        sc_source: 'Function Initialize() Uint64\n10 RETURN 0\nEnd Function',
+        include_breakdown: 'false',
+      },
+    })
+    if (!promptWithBoolArg.messages?.length) {
+      throw new Error('prompts/get estimate_deploy_for_contract rejected string include_breakdown')
+    }
+    console.log('OK  prompts/get     string-typed args coerce (number + boolean)')
+
     const infoResult = await client.callTool({
       name: 'dero_get_info',
       arguments: {},
@@ -216,11 +240,16 @@ async function main() {
       `OK  tools/call      dero_get_info related_docs (${infoPayload.related_docs.length} citation(s))`,
     )
 
-    const structuredErrorProbe = await client.callTool({
+    const structuredErrorProbe = (await client.callTool({
       name: 'dero_get_block',
       arguments: {},
-    })
-    const errorPayload = parseFirstTextJson(structuredErrorProbe as { content: Array<{ type: string; text?: string }> }) as {
+    })) as { isError?: boolean; content: Array<{ type: string; text?: string }> }
+    // Tool failures must be flagged at the protocol level so hosts that branch
+    // on isError (before parsing content) see the call as failed.
+    if (structuredErrorProbe.isError !== true) {
+      throw new Error('structured error probe did not set isError: true')
+    }
+    const errorPayload = parseFirstTextJson(structuredErrorProbe) as {
       ok?: boolean
       _meta?: { error?: { code?: string; hint?: string; retryable?: boolean } }
     }
@@ -232,7 +261,7 @@ async function main() {
     ) {
       throw new Error('structured error probe did not return expected _meta.error shape')
     }
-    console.log('OK  tools/call      structured _meta.error probe')
+    console.log('OK  tools/call      structured _meta.error probe (isError + envelope)')
 
     console.log('')
     console.log('All MCP smoke probes passed.')
