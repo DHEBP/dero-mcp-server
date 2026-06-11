@@ -459,6 +459,51 @@ async function flowTelaInspectNotTela(client: Client): Promise<void> {
 }
 
 /**
+ * flow-tela-doc-content-gzip — live guard for transparent gzip decompression.
+ *
+ * TELA-CLI stores files as base64'd gzip (a `.gz` filename). tela_get_doc_content
+ * must decompress to plaintext so an agent reads real HTML/JS/CSS, not a blob.
+ * Uses feed.tela's DOC1 (index.html.gz) — a real mainnet gzipped TELA-DOC-1.
+ */
+async function flowTelaDocContentGzip(client: Client): Promise<void> {
+  const FEED_INDEX = 'f80faf4b0d0d8a16dd3863bbc1366eb5398326db4bdd7aff02031cb014b41baf'
+  const insp = await client.callTool({ name: 'tela_inspect', arguments: { scid: FEED_INDEX } })
+  const ip = parseFirstTextJson(insp as { content: Array<{ type: string; text?: string }> }) as {
+    kind?: string
+    index?: { docs?: Array<{ scid?: string; is_entrypoint?: boolean }> }
+  }
+  if (ip.kind !== 'tela_index') {
+    // feed.tela moved/unavailable — don't fail the suite on external state.
+    console.log(`SKIP flow-tela-doc-content-gzip (feed.tela not a tela_index right now: ${ip.kind})`)
+    return
+  }
+  const entry = ip.index?.docs?.find((d) => d.is_entrypoint) ?? ip.index?.docs?.[0]
+  if (!entry?.scid) {
+    console.log('SKIP flow-tela-doc-content-gzip (no DOC SCID on feed.tela)')
+    return
+  }
+  const r = await client.callTool({ name: 'tela_get_doc_content', arguments: { scid: entry.scid } })
+  const c = parseFirstTextJson(r as { content: Array<{ type: string; text?: string }> }) as {
+    filename?: string
+    stored_filename?: string
+    compressed?: boolean
+    decompressed?: boolean
+    content?: string | null
+  }
+  if (c.compressed !== true || c.decompressed !== true) {
+    throw new Error(`tela_get_doc_content: expected gzip decompression (compressed=${c.compressed}, decompressed=${c.decompressed})`)
+  }
+  if (!/\.gz$/i.test(c.stored_filename ?? '') || /\.gz$/i.test(c.filename ?? '')) {
+    throw new Error(`tela_get_doc_content: filename should strip .gz (stored=${c.stored_filename}, shown=${c.filename})`)
+  }
+  // The decompressed HTML must be readable plaintext, not base64/gzip.
+  if (!(c.content ?? '').includes('<') || /^H4sI/.test(c.content ?? '')) {
+    throw new Error('tela_get_doc_content: content is not decompressed plaintext')
+  }
+  console.log(`OK  flow-tela-doc-content-gzip (${c.stored_filename} → ${c.filename}, decompressed plaintext ✓)`)
+}
+
+/**
  * flow-recommend-docs-deploy-tela — composite design contract § 3.
  *
  * Asserts:
@@ -1081,6 +1126,7 @@ async function main(): Promise<void> {
     await flowDiagnoseChainHealth(client)
     await flowExplainNameRegistry(client)
     await flowTelaInspectNotTela(client)
+    await flowTelaDocContentGzip(client)
     await flowRecommendDocsDeployTela(client)
     await flowRecommendDocsNoMatch(client)
     await flowEstimateDeployMinimal(client)

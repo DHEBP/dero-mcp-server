@@ -52,6 +52,8 @@ export type TelaIndexParsed = {
   tela_version: string | null
   likes: number | null
   dislikes: number | null
+  /** Per-wallet ratings summary (voters + raw values), or null if none. */
+  ratings: { voters: number; values: number[] } | null
   /** GetSC does not expose ringsize, so updateability cannot be derived. */
   updateable: 'unknown'
   updateable_note: string
@@ -233,14 +235,38 @@ export function parseTelaIndex(
     else if (typeof commitS === 'string' && /^\d+$/.test(commitS)) commit = Number(commitS)
   }
 
-  // version_history: numbered keys "0","1","2"... → commit TXIDs, numeric order.
+  // version_history: numbered keys "0","1","2"... → commit TXIDs, numeric
+  // order. Real contracts store these in uint64keys (observed on feed.tela),
+  // though the spec template shows stringkeys — scan BOTH so neither is missed.
+  const uk = uint64keys ?? {}
   const version_history: { commit: number; txid: string }[] = []
-  for (const key of Object.keys(sk)) {
-    if (!/^\d+$/.test(key)) continue
-    const txid = readStr(sk, key)
-    if (txid) version_history.push({ commit: Number(key), txid })
+  const seenCommits = new Set<number>()
+  for (const map of [sk, uk]) {
+    for (const key of Object.keys(map)) {
+      if (!/^\d+$/.test(key)) continue
+      const n = Number(key)
+      if (seenCommits.has(n)) continue
+      const txid = decodeScValue(map[key])
+      if (txid) {
+        version_history.push({ commit: n, txid })
+        seenCommits.add(n)
+      }
+    }
   }
   version_history.sort((a, b) => a.commit - b.commit)
+
+  // ratings: per-wallet keys map a voter address → "<rating>_<block>" (a TELA
+  // convention). Summarize so an agent doesn't have to reverse-engineer it.
+  const ratings: { voters: number; values: number[] } = { voters: 0, values: [] }
+  for (const key of Object.keys(sk)) {
+    if (!/^(dero1|deto1)[0-9a-z]+$/i.test(key)) continue
+    const val = readStr(sk, key) ?? ''
+    const m = /^(\d+)_/.exec(val)
+    if (m) {
+      ratings.voters += 1
+      ratings.values.push(Number(m[1]))
+    }
+  }
 
   // Optional metadata seen on real INDEX contracts (not in the base spec).
   const tela_version = readStr(sk, 'telaVersion')
@@ -262,6 +288,7 @@ export function parseTelaIndex(
     tela_version,
     likes,
     dislikes,
+    ratings: ratings.voters > 0 ? ratings : null,
     updateable: 'unknown',
     updateable_note: UPDATEABLE_NOTE,
     parse_notes: notes,

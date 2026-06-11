@@ -4,6 +4,36 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.7]
+
+### Fixed
+- **`tela_get_doc_content` now transparently decompresses gzipped files.**
+  TELA-CLI stores files as base64-encoded gzip (a `.gz` filename, the default),
+  so the tool previously returned a compressed `H4sIAAAA…` blob and a "can't
+  decompress" note — forcing an agent to shell out to gunzip it by hand. It now
+  base64-decodes + gunzips (Node's built-in `zlib`, no new dependency) and
+  returns the plaintext file, stripping `.gz` from `filename` while keeping the
+  on-chain name in `stored_filename` and flagging `decompressed: true`. Verified
+  live: `feed.tela` / `cipherchess.tela` `index.html.gz` → real `<!DOCTYPE>`.
+- **`tela_inspect` version history was always empty.** Contracts store the
+  numbered commit-TXID keys in `uint64keys`, but the parser only scanned
+  `stringkeys` — so a contract at commit 4 reported "0 versions on chain", a
+  contradiction that sent agents back to raw `DERO.GetSC`. It now scans both
+  maps and decodes the TXIDs; verified live (FEED → 5 versions, Crypto hammer →
+  4, Cipher Chess → 2).
+
+### Added
+- **`tela_inspect` surfaces a per-wallet `ratings` summary** (`{ voters,
+  values[] }`). Real INDEX contracts store each voter's address → `<rating>_
+  <block>`; the tool now summarizes this instead of leaving an agent to
+  reverse-engineer the rating keys.
+
+### Tests
+- `check:tela-parse` gains fixture F9 (version history in `uint64keys` +
+  ratings). A new `flow-tela-doc-content-gzip` flow test decompresses
+  `feed.tela`'s real `index.html.gz` over the live chain, converting the gzip
+  path into a real-data regression.
+
 ## [0.4.6]
 
 ### Fixed

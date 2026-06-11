@@ -26,6 +26,8 @@ function check(name: string, ok: boolean, detail = ''): void {
 }
 
 const HEX = (n: number) => n.toString(16).padStart(64, '0')
+// Hex-encode a string the way DERO.GetSC returns stored string-key values.
+const enc = (s: string): string => Buffer.from(s, 'utf8').toString('hex')
 
 // --- Fixture 1: a large INDEX with >50 DOCs (proves cap-bypass enumeration) ---
 const bigIndexKeys: Record<string, unknown> = {
@@ -124,6 +126,28 @@ const idx6 = parseTelaIndex(badDocKeys, {})
 check('F6 malformed DOC kept raw + flagged', idx6.docs[0]?.malformed === true && idx6.docs[0]?.scid === 'not-a-valid-scid', '')
 check('F6 malformed DOC adds parse_note', idx6.parse_notes.some((n) => n.includes('64-hex')), idx6.parse_notes.join('; '))
 
+// --- Fixture 9: version history in uint64keys + per-wallet ratings (real
+// feed.tela shape — the spec template shows stringkeys, but live contracts
+// store numbered commit keys in uint64keys). ---
+const realScid9 = 'b5e21240e5a5bc6ec09c6516076f2cca7023169bbd50e219e983905686de2dd8'
+const feedKeys: Record<string, unknown> = {
+  var_header_name: enc('FEED'),
+  dURL: enc('feed.tela'),
+  DOC1: enc(realScid9),
+  likes: enc('10'),
+  dislikes: enc('0'),
+  // per-wallet ratings: address -> "<rating>_<block>"
+  dero1qyfk5w2rvqpl9kzfd7fpteyp2k362y6audydcu2qrgcmj6vtasfkgqq9704gn: enc('88_5912203'),
+  dero1qyj4unrgwn0n88jzs6cyv77tdqs5tcfug0d0gdyaljxwfdcqu5mmzqqyytl80: enc('99_5917384'),
+}
+const feedU: Record<string, unknown> = {}
+for (let c = 0; c <= 4; c++) feedU[String(c)] = enc(HEX(2000 + c)) // numbered TXIDs in uint64keys
+const idx9 = parseTelaIndex(feedKeys, feedU)
+check('F9 version_history read from uint64keys', idx9.version_history.length === 5 && idx9.version_history[4].commit === 4, `len=${idx9.version_history.length}`)
+check('F9 version TXIDs decoded', idx9.version_history[0].txid === HEX(2000), idx9.version_history[0].txid.slice(0, 12))
+check('F9 ratings summarized', idx9.ratings?.voters === 2 && idx9.ratings?.values.includes(88) && idx9.ratings?.values.includes(99), JSON.stringify(idx9.ratings))
+check('F9 likes/dislikes', idx9.likes === 10 && idx9.dislikes === 0, `${idx9.likes}/${idx9.dislikes}`)
+
 // --- Fixture 7: empty/garbage code never throws ---
 const extEmpty = extractTelaDocContent('')
 check('F7 empty code → embedded false, no throw', extEmpty.embedded === false, '')
@@ -133,7 +157,6 @@ check('F7 undefined keys → not_tela, no throw', clsEmpty.kind === 'not_tela', 
 // --- Fixture 8: REAL hex-encoded values (DERO.GetSC returns string-key values
 // hex-encoded). Modeled on the live "Crypto hammer" app (f4ef31f2…). The parser
 // must decode header text AND the double-hex DOC SCID. ---
-const enc = (s: string): string => Buffer.from(s, 'utf8').toString('hex')
 const realScid = 'f85b2995308ce5c486e4539d91b3e6ee048aaea179ccdfb104efa592c41072d9'
 const hexIndexKeys: Record<string, unknown> = {
   nameHdr: '1',

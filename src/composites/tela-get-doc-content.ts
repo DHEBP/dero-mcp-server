@@ -7,12 +7,19 @@
  * content via the shared extractTelaDocContent. Large files are chunked with
  * offset pagination (mirrors dero_docs_get_page).
  *
+ * TELA-CLI gzips files (a `.gz` filename), storing them base64-encoded. This
+ * tool transparently base64-decodes + gunzips such content (Node's built-in
+ * zlib, no new dependency) and returns the real plaintext file — so an agent
+ * never has to shell out to decompress.
+ *
  * Read-only; one RPC call. We surface the content verbatim and report the
  * author signature's presence — we do NOT claim to have verified it (the
  * server performs no signature check), only that the contract carries one.
  */
 
 import { z } from 'zod'
+import zlib from 'node:zlib'
+import { Buffer } from 'node:buffer'
 import { attachCitations, type DeroDaemonRpc, type DeroGetScResult } from './_shared.js'
 import { classifyTela, parseTelaDoc, extractTelaDocContent } from '../tela-parse.js'
 
@@ -20,6 +27,23 @@ const SCID_HEX_REGEX = /^[0-9a-fA-F]{64}$/
 
 // Per-call content cap, matching dero_docs_get_page's PAGE_CONTENT_CHUNK.
 const DOC_CONTENT_CHUNK = 60000
+
+/**
+ * TELA-CLI stores gzipped DOC files as base64-encoded gzip. Decode + gunzip
+ * back to the plaintext file. Defensive: returns null (caller keeps the raw
+ * content) if the bytes are not actually base64'd gzip, so a mislabeled or
+ * truncated file never throws.
+ */
+function decompressGzipBase64(content: string): string | null {
+  try {
+    const buf = Buffer.from(content.trim(), 'base64')
+    // gzip magic bytes 0x1f 0x8b — bail early if absent (not really gzip).
+    if (buf.length < 2 || buf[0] !== 0x1f || buf[1] !== 0x8b) return null
+    return zlib.gunzipSync(buf).toString('utf8')
+  } catch {
+    return null
+  }
+}
 
 export const telaGetDocContentInputSchema = {
   scid: z
@@ -64,19 +88,46 @@ export async function telaGetDocContent(rpc: DeroDaemonRpc, args: TelaGetDocCont
   const responseTopoheight =
     typeof args.topoheight === 'number' && Number.isFinite(args.topoheight) ? args.topoheight : null
 
-  const full = extracted.content ?? ''
+  // A `.gz` filename means TELA-CLI stored the file as base64'd gzip.
+  // Transparently decompress to the plaintext file so the agent reads real
+  // HTML/JS/CSS, not a compressed blob. If decompression fails (not actually
+  // gzip), fall back to the raw content and flag it.
+  const rawExtracted = extracted.content ?? ''
+  const looksGzipped = !!doc.filename && /\.gz$/i.test(doc.filename)
+  let decompressed = false
+  let decompressFailed = false
+  let full = rawExtracted
+  let displayFilename = doc.filename
+  if (looksGzipped && extracted.embedded && rawExtracted) {
+    const out = decompressGzipBase64(rawExtracted)
+    if (out !== null) {
+      full = out
+      decompressed = true
+      // Surface the real filename (strip the .gz the user never sees).
+      displayFilename = doc.filename!.replace(/\.gz$/i, '')
+    } else {
+      decompressFailed = true
+    }
+  }
+
   const total = full.length
   const offset = Math.max(0, Math.min(args.offset ?? 0, total))
   const end = Math.min(offset + DOC_CONTENT_CHUNK, total)
   const truncated = end < total
 
-  // .gz filename ⇒ gzip-compressed content we cannot decompress in-process.
-  const compressed = !!doc.filename && /\.gz$/i.test(doc.filename)
+  const note = extracted.note
+    ? extracted.note
+    : decompressed
+      ? `File was gzip-compressed on-chain (stored as ${doc.filename}); transparently decompressed to plaintext here.`
+      : decompressFailed
+        ? `Filename is ${doc.filename} but the content did not decode as base64 gzip; returning raw bytes.`
+        : undefined
 
   const payload = {
     scid: args.scid,
     topoheight: responseTopoheight,
-    filename: doc.filename,
+    filename: displayFilename,
+    stored_filename: doc.filename,
     doc_type: doc.doc_type,
     sub_dir: doc.sub_dir,
     content_embedded: extracted.embedded,
@@ -85,13 +136,14 @@ export async function telaGetDocContent(rpc: DeroDaemonRpc, args: TelaGetDocCont
     content_length: total,
     content_truncated: truncated,
     next_offset: truncated ? end : null,
-    compressed,
+    compressed: looksGzipped,
+    decompressed,
     signature: doc.signature,
     signature_note:
       'The contract carries an author signature (fileCheckC/S). This tool reports its presence but does NOT cryptographically verify it.',
-    note: extracted.note ?? (compressed ? 'Content is gzip-compressed (.gz); shown bytes are compressed, not the plaintext file.' : undefined),
+    note,
     narrative: extracted.embedded
-      ? `Fetched ${total} bytes of "${doc.filename ?? 'file'}" (${doc.doc_type ?? 'unknown type'}) from TELA-DOC-1 ${args.scid}.${truncated ? ` Returning bytes ${offset}–${end}; paginate with next_offset.` : ''}${compressed ? ' Content is gzip-compressed.' : ''}`
+      ? `Fetched ${total} bytes of "${displayFilename ?? 'file'}" (${doc.doc_type ?? 'unknown type'}) from TELA-DOC-1 ${args.scid}.${decompressed ? ' Gzip content was decompressed to plaintext.' : ''}${truncated ? ` Returning bytes ${offset}–${end}; paginate with next_offset.` : ''}`
       : `TELA-DOC-1 ${args.scid} ("${doc.filename ?? 'file'}") has no inline file content (${extracted.note ?? 'DocShard, STATIC, or external'}).`,
   }
 
