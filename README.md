@@ -91,6 +91,7 @@ Once installed, your MCP host can do all of these on your behalf — in natural 
 - **Inspect the chain** — blocks, transactions, mempool, encrypted balances, registered names
 - **Analyze smart contracts** — read code and state, classify the pattern, estimate deploy gas, pull relevant DVM-BASIC docs in one call
 - **Trace transactions** — look up any hash, confirm inclusion, classify the kind (transfer / SC install / SC call)
+- **Explore the on-chain web (TELA)** — discover apps by name (`vault.tela` → SCID), browse what's deployed, inspect an app's manifest and files, and read the actual on-chain HTML/JS/CSS — no separate indexer to run
 - **Search the docs** — across all four DERO sites (derod, tela, hologram, deropay)
 - **Run composite analyses** — chain health, claim audits, docs path recommendations, deploy pre-flights — each returns curated DERO docs citations alongside the data
 
@@ -121,6 +122,18 @@ Composite tools that fan out into multiple primitives and return a synthesized a
 > *"What's the right reading path for someone new to DERO smart contracts who wants to deploy a DVM-BASIC contract?"*
 >
 > *"Estimate the gas cost to deploy this DVM source: <paste contract>"*
+
+### TELA — the decentralized web on DERO
+
+TELA apps are full web apps (HTML/CSS/JS) deployed entirely on-chain. The server discovers and reads them with no external indexer — the first discovery query runs a one-time ~15s scan, then it's instant.
+
+> *"What's the SCID for vault.tela?"*
+>
+> *"What TELA apps exist on DERO? Show me a few."*
+>
+> *"Inspect the TELA app at SCID <scid> — what is it, who made it, and what files does it have?"*
+>
+> *"Show me the actual HTML of that app's index.html."*
 
 For multi-step agent recipes, per-tool guidance, error contract, and the composite-first rule, see [`SKILL.md`](./SKILL.md).
 
