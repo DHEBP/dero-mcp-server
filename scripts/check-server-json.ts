@@ -140,6 +140,34 @@ async function checkSurfaceCounts(): Promise<boolean> {
     detail: `expected "**Prompts (${promptCount})" in README MCP Surface`,
   })
 
+  // The bundled docs index ships the derod.org "tools/mcp-server" page, which
+  // the live server surfaces via dero_docs_search — so it self-documents the
+  // tool surface to AI users. It lives in a SEPARATE repo (dero-docs) and has
+  // drifted before (stuck at "28 tools" two releases behind). Assert the
+  // BUNDLED copy states the current tool count so a stale page can't ship in
+  // the npm package. (Fix the source in dero-docs, then `npm run build:docs`.)
+  try {
+    const idxRaw = await readFile(path.join(ROOT, 'data', 'docs-index.json'), 'utf-8')
+    const idx = JSON.parse(idxRaw) as { pages?: Array<{ slug?: string; plainText?: string }> }
+    const page = idx.pages?.find((p) => p.slug === 'tools/mcp-server')
+    if (page) {
+      const txt = page.plainText ?? ''
+      const states = new RegExp(`\\b${toolCount}\\s+tools\\b`).test(txt)
+      // Flag if it states a DIFFERENT tool count (stale), not merely absent.
+      const staleCount = txt.match(/\b(\d+)\s+tools\b/)
+      checks.push({
+        label: `bundled tools/mcp-server doc states ${toolCount} tools`,
+        ok: states,
+        detail: staleCount
+          ? `bundled page says "${staleCount[0]}" — refresh dero-docs page + run \`npm run build:docs\``
+          : `bundled page does not state "${toolCount} tools" — refresh dero-docs + \`npm run build:docs\``,
+      })
+    }
+    // If the page isn't bundled, skip silently — not all bundles include it.
+  } catch {
+    // No bundled index (dev without data/) — nothing to assert; skip.
+  }
+
   process.stdout.write('\n[check:server-json] verifying surface counts (tools/resources/prompts)...\n\n')
   let drift = false
   for (const c of checks) {
