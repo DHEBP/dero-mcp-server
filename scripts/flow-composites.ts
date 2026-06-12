@@ -504,6 +504,44 @@ async function flowTelaDocContentGzip(client: Client): Promise<void> {
 }
 
 /**
+ * flow-durl-discovery — live discovery guard.
+ *
+ * Resolves "vault.tela" through dero_durl_to_scid against the real chain (the
+ * in-process newest-first scan), asserting the known SCID. Also confirms the
+ * name-routing guard: a bare name returns found:false pointing at
+ * dero_name_to_address. This is the cold-start discovery scan (~10-15s).
+ */
+async function flowDurlDiscovery(client: Client): Promise<void> {
+  const VAULT_SCID = 'e3a08ce52e8e92e406c60b2ce58f98f8fab00e3c7d1f4feb6c665aaa9f68e5c3'
+  const r = await client.callTool({ name: 'dero_durl_to_scid', arguments: { durl: 'vault.tela' } })
+  const p = parseFirstTextJson(r as { content: Array<{ type: string; text?: string }> }) as {
+    found?: boolean
+    scid?: string
+    primary?: { name?: string }
+  }
+  if (!p.found) {
+    // vault.tela could move/de-list — don't fail the suite on external state.
+    console.log('SKIP flow-durl-discovery (vault.tela not currently indexed)')
+  } else {
+    if (p.scid !== VAULT_SCID) {
+      throw new Error(`dero_durl_to_scid: vault.tela expected ${VAULT_SCID.slice(0, 12)}…, got ${p.scid?.slice(0, 12)}…`)
+    }
+    console.log(`OK  flow-durl-discovery (vault.tela → ${p.scid.slice(0, 12)}… "${p.primary?.name}")`)
+  }
+
+  // Name-routing guard (always runnable): a bare name must NOT resolve as a dURL.
+  const rn = await client.callTool({ name: 'dero_durl_to_scid', arguments: { durl: 'quickbrownfox' } })
+  const pn = parseFirstTextJson(rn as { content: Array<{ type: string; text?: string }> }) as {
+    found?: boolean
+    hint?: string
+  }
+  if (pn.found !== false || !/dero_name_to_address/.test(pn.hint ?? '')) {
+    throw new Error('dero_durl_to_scid: bare name should return found:false routing to dero_name_to_address')
+  }
+  console.log('OK  flow-durl-discovery-name-routing (bare name → dero_name_to_address)')
+}
+
+/**
  * flow-recommend-docs-deploy-tela — composite design contract § 3.
  *
  * Asserts:
@@ -1127,6 +1165,7 @@ async function main(): Promise<void> {
     await flowExplainNameRegistry(client)
     await flowTelaInspectNotTela(client)
     await flowTelaDocContentGzip(client)
+    await flowDurlDiscovery(client)
     await flowRecommendDocsDeployTela(client)
     await flowRecommendDocsNoMatch(client)
     await flowEstimateDeployMinimal(client)

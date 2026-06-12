@@ -280,6 +280,25 @@ Input Requirements:
 
 Output: \`{ scid, topoheight, filename, doc_type, sub_dir, content_embedded, content, content_offset, content_length, content_truncated, next_offset, compressed, decompressed, stored_filename, signature, signature_note, note, narrative, related_docs }\`. \`content\` is the plaintext file (a 60000-char chunk; paginate via \`next_offset\`), or null when content is not embedded (DocShard/STATIC/external). \`compressed\` is true for \`.gz\` files; \`decompressed\` is true when this tool gunzipped them (\`filename\` then strips \`.gz\`; \`stored_filename\` keeps the on-chain name). The contract's author signature presence is reported but NOT cryptographically verified.`,
 
+  dero_durl_to_scid: `Composite: resolve a TELA dURL (e.g. "vault.tela") to its on-chain SCID(s) by discovering TELA apps directly from chain — no external Gnomon indexer required. TELA apps advertise a human-readable dURL; this finds the contract(s) that claim it.
+
+When to call: when a user asks "what's the SCID for <something>.tela", "find the TELA app called X", or gives a dURL and wants the contract. IMPORTANT routing: for a registered DERO NAME like "quickbrownfox" (no dot, not a dURL), use dero_name_to_address instead — that is a name to address lookup, not a TELA app. This tool is only for TELA dURLs (they contain a dot / .tela / a dero:// prefix).
+
+Input Requirements:
+- \`durl\` is REQUIRED. A TELA dURL such as "vault.tela", "feed.tela", or "dero://cipherchess.tela". Case- and prefix-insensitive.
+
+Output: \`{ query, normalized, found, match_count, scid, primary, collision, other_candidates[], narrative, related_docs }\` on a hit; \`{ query, normalized, found:false, match_count:0, hint }\` on a miss. dURLs are NOT unique — when multiple contracts claim one, the NEWEST is returned as \`scid\`/\`primary\` and the rest are disclosed in \`other_candidates\` with \`collision:true\`. The first call triggers a ~10s one-time discovery scan of the newest chain contracts (cached afterward). Feed the returned scid to tela_inspect to view the app.`,
+
+  dero_tela_list_apps: `Composite: list/browse the TELA apps discovered on-chain (each with its dURL, name, SCID, and doc count) — answers "what TELA apps exist?" without any external indexer. Powered by an in-process scan of the newest chain contracts.
+
+When to call: when a user wants to explore or search the TELA ecosystem ("what TELA apps are there", "show me TELA games", "is there a TELA app about X"), or to find a SCID when they do not know the exact dURL. For an exact dURL use dero_durl_to_scid; to inspect a specific SCID use tela_inspect.
+
+Input Requirements:
+- \`query\` is OPTIONAL. Case-insensitive filter matched against dURL and name (e.g. "chess", "vault").
+- \`limit\` is OPTIONAL (default 50, max 200).
+
+Output: \`{ query, total_matched, returned, truncated, apps:[{ scid, durl, name, install_height, doc_count }], index_meta, narrative, related_docs }\`. The first call triggers a ~10s one-time discovery scan (cached afterward). \`index_meta\` discloses how much of the chain was scanned so the answer's coverage is transparent.`,
+
   diagnose_chain_health: `Composite: run a four-step chain (DERO.Ping → DERO.GetInfo → DERO.GetHeight → DERO.GetTxPool) and return a single narrative health report with chain metadata, mempool snapshot, machine-readable signals, and curated docs citations.
 
 When to call: as the first step in any chain-state investigation when the user asks "is the node healthy", "is it synced", or "what is the current state of the chain". PREFER this over chaining the four primitives yourself — the composite handles partial-failure modes and lag-depth classification consistently, and the response already cites the right docs page.

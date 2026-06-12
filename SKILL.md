@@ -39,7 +39,7 @@ Before answering the first user question that needs DERO knowledge, read the MCP
 
 1. `dero://mcp/server-info` — server metadata, tool list, resource list, prompt names
 2. `dero://mcp/example-flows` — agent flow recipes (composites first, primitives second)
-3. `dero://mcp/composites` — full catalog of the 9 composite tools and when to use each
+3. `dero://mcp/composites` — full catalog of the 11 composite tools and when to use each
 4. `dero://mcp/safety-boundary` — read-only posture, excluded methods, write-path guidance
 
 These four resources document the canonical agent workflows. Skim them once per session.
@@ -79,6 +79,8 @@ The MCP exposes both **primitive** tools (one daemon RPC method per tool) and **
 | `dero_forge_demo_proof` | (varies) | Generate demo proof strings for testing |
 | `tela_inspect` | get_sc + manual TELA schema parsing | User references a TELA SCID / `.tela` app: "what is this TELA contract", "what files does this app have" (auto-detects INDEX vs DOC) |
 | `tela_get_doc_content` | get_sc + comment-block extraction | User wants the actual file content (HTML/CSS/JS) a TELA-DOC stores |
+| `dero_durl_to_scid` | (chain discovery — no external indexer) | User asks "what's the SCID for vault.tela" / a `.tela` dURL → resolves to SCID(s). For a NAME like "quickbrownfox" use `dero_name_to_address` instead |
+| `dero_tela_list_apps` | (chain discovery — no external indexer) | User wants to browse/search what TELA apps exist on-chain |
 
 Fall back to primitives only when the composite is unavailable or returns `_meta.error`.
 

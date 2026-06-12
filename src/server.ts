@@ -44,6 +44,12 @@ import {
   telaGetDocContent,
   telaGetDocContentInputSchema,
 } from './composites/tela-get-doc-content.js'
+import {
+  deroDurlToScid,
+  deroDurlToScidInputSchema,
+  deroTelaListApps,
+  deroTelaListAppsInputSchema,
+} from './composites/tela-discovery.js'
 
 const scRpcArgSchema = z.object({
   name: z.string(),
@@ -316,7 +322,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     deroJsonRpc<T>(endpoint, method, params)
   const server = new McpServer({
     name: 'dero-daemon-mcp',
-    version: '0.4.7',
+    version: '0.4.8',
   })
 
   server.registerTool(
@@ -808,6 +814,24 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   )
 
   server.registerTool(
+    'dero_durl_to_scid',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_durl_to_scid,
+      inputSchema: deroDurlToScidInputSchema,
+    }),
+    withStructuredErrors('dero_durl_to_scid', async (args) => deroDurlToScid(rpc, args)),
+  )
+
+  server.registerTool(
+    'dero_tela_list_apps',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.dero_tela_list_apps,
+      inputSchema: deroTelaListAppsInputSchema,
+    }),
+    withStructuredErrors('dero_tela_list_apps', async (args) => deroTelaListApps(rpc, args)),
+  )
+
+  server.registerTool(
     'recommend_docs_path',
     readOnly({
       description: TOOL_DESCRIPTIONS.recommend_docs_path,
@@ -873,7 +897,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: JSON.stringify(
             {
               name: 'dero-daemon-mcp',
-              version: '0.4.7',
+              version: '0.4.8',
               mode: 'read-only',
               endpoint: endpoint,
               docs_products: DERO_DOC_PRODUCTS,
@@ -978,7 +1002,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'dero_mcp_composites',
     'dero://mcp/composites',
     {
-      description: 'Catalog of the 9 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
+      description: 'Catalog of the 11 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
       mimeType: 'application/json',
     },
     async (uri) => ({
@@ -1062,8 +1086,25 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
                   replaces: ['dero_get_sc + manual comment-block extraction from the contract code'],
                   when_to_call: 'User wants the actual file content (HTML/CSS/JS) a TELA-DOC-1 stores. Get DOC SCIDs from tela_inspect on an INDEX first.',
                   inputs: { scid: '64-char hex DOC SCID', offset: 'optional number (paginate large files)', topoheight: 'optional number' },
-                  output_highlights: ['content (60k-char chunk; paginate via next_offset)', 'filename, doc_type, sub_dir', 'compressed (.gz flag)', 'signature (presence only, not verified)', 'related_docs'],
+                  output_highlights: ['content (60k-char chunk; paginate via next_offset; .gz transparently decompressed)', 'filename, doc_type, sub_dir', 'compressed/decompressed flags', 'signature (presence only, not verified)', 'related_docs'],
                   error_codes: ['INVALID_INPUT (SCID is not a TELA-DOC-1; hint points to tela_inspect)', 'RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'dero_durl_to_scid',
+                  replaces: ['running a separate Gnomon indexer to resolve a dURL to a SCID'],
+                  when_to_call: 'User asks "what is the SCID for vault.tela" or gives a .tela dURL. For a registered NAME like "quickbrownfox" (no dot) use dero_name_to_address instead.',
+                  inputs: { durl: 'TELA dURL e.g. "vault.tela" or "dero://feed.tela"' },
+                  output_highlights: ['scid + primary { durl, name, install_height, doc_count }', 'collision + other_candidates[] when a dURL is non-unique (newest = primary)', 'found:false + hint on miss'],
+                  scope_note: 'First call runs a ~10s in-process discovery scan of the newest chain contracts (cached after). dURLs are NOT unique — newest is primary, others disclosed.',
+                  error_codes: ['RPC_UNREACHABLE'],
+                },
+                {
+                  name: 'dero_tela_list_apps',
+                  replaces: ['running a separate Gnomon indexer to browse TELA apps'],
+                  when_to_call: 'User wants to explore/search what TELA apps exist on-chain, or find a SCID without knowing the exact dURL.',
+                  inputs: { query: 'optional case-insensitive filter on durl/name', limit: 'optional number, default 50, max 200' },
+                  output_highlights: ['apps[] { scid, durl, name, install_height, doc_count }', 'index_meta (apps_indexed, scanned_scids, registry_total, newest_height) for coverage transparency'],
+                  error_codes: ['RPC_UNREACHABLE'],
                 },
               ],
             },

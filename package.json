@@ -1,7 +1,7 @@
 {
   "name": "dero-mcp-server",
   "mcpName": "io.github.DHEBP/dero-mcp-server",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Model Context Protocol (MCP) server exposing DERO Stargate daemon JSON-RPC and bundled documentation to Claude and other MCP clients",
   "type": "module",
   "license": "MIT",
@@ -40,6 +40,7 @@
     "check:proof-roundtrip": "npx tsx scripts/check-proof-roundtrip.ts",
     "check:tx-parse": "npx tsx scripts/check-tx-parse.ts",
     "check:tela-parse": "npx tsx scripts/check-tela-parse.ts",
+    "check:gnomon": "npx tsx scripts/check-gnomon.ts",
     "check:forge-demo": "npx tsx scripts/check-forge-demo.ts",
     "check:server-json": "npx tsx scripts/check-server-json.ts",
     "check:docs-ranking": "npx tsx scripts/check-docs-ranking.ts",

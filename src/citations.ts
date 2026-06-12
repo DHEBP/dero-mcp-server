@@ -268,6 +268,30 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard',
     },
   ],
+  dero_durl_to_scid: [
+    {
+      product: 'tela',
+      slug: 'advanced-features/durl-explained',
+      title: 'Understanding dURLs | Decentralized URL Identity & Resolution',
+    },
+    {
+      product: 'tela',
+      slug: 'tela-cli/gnomon-guide',
+      title: 'Gnomon Indexer Deep-Dive Guide | TELA Content Discovery and Indexing',
+    },
+  ],
+  dero_tela_list_apps: [
+    {
+      product: 'tela',
+      slug: 'tela-cli/gnomon-guide',
+      title: 'Gnomon Indexer Deep-Dive Guide | TELA Content Discovery and Indexing',
+    },
+    {
+      product: 'tela',
+      slug: 'tela/tela-index-specification',
+      title: 'TELA-INDEX-1 Specification | Application Manifest Smart Contract Standard',
+    },
+  ],
 } as const
 
 /**

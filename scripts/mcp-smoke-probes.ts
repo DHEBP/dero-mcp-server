@@ -51,6 +51,8 @@ const EXPECTED_TOOLS = [
   // ---- TELA tools ----
   'tela_inspect',
   'tela_get_doc_content',
+  'dero_durl_to_scid',
+  'dero_tela_list_apps',
 ] as const
 
 const EXPECTED_RESOURCES = [

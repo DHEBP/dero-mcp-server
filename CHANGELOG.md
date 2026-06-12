@@ -4,6 +4,40 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.8]
+
+### Added
+- **TELA app discovery — resolve a dURL to its SCID with no external indexer.**
+  Two new tools answer "what's the SCID for vault.tela?" and "what TELA apps
+  exist?" entirely in-process:
+  - `dero_durl_to_scid` — resolves a TELA dURL (e.g. `vault.tela`) to its
+    on-chain SCID(s). dURLs are non-unique, so the newest contract is returned
+    as the canonical primary and any other claimants are disclosed under
+    `other_candidates` with `collision: true`.
+  - `dero_tela_list_apps` — lists/searches the discovered TELA apps (dURL, name,
+    SCID, doc count), with an `index_meta` block disclosing scan coverage.
+
+  How it works (a tiny `src/gnomon.ts`, no Go sidecar, no separate Gnomon
+  service, no bundled binary): one `DERO.GetSC` on the GnomonSC registry yields
+  every SCID with its install height (~5s); since TELA is a recent platform,
+  all indexed apps live in the newest ~1,500 SCIDs (measured live: scanning
+  ranks 1,500–5,000 found zero more), so only the newest ~2,000 contracts are
+  scanned and classified. Result: a ~14s one-time cold start (cached ~10 min,
+  with incremental refresh), versus the full Gnomon indexer's ~hour over all
+  50k+ contracts. Tunable via `DERO_GNOMON_SCAN_DEPTH` / `DERO_GNOMON_CONCURRENCY`.
+
+  Routing note: a bare registered name like `quickbrownfox` (no dot) is NOT a
+  dURL — `dero_durl_to_scid` returns `found: false` with a hint to use the
+  existing `dero_name_to_address` for names.
+
+  Total tools: 30 → 32 (11 composites).
+
+### Tests
+- `check:gnomon` — 13 offline fixture assertions over a mock daemon (registry
+  parse, newest-first scan, decode, dURL→SCID map, non-unique collision, cache).
+  A `flow-durl-discovery` flow test resolves the real `vault.tela` over the live
+  chain and asserts the name-routing guard. Both wired into CI.
+
 ## [0.4.7]
 
 ### Fixed

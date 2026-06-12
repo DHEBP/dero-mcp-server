@@ -1,6 +1,6 @@
 # DERO MCP server
 
-> **A read-only Model Context Protocol server for the DERO privacy blockchain** — a private-by-default Layer 1 with encrypted balances, private smart contracts (DVM-BASIC), and no public transaction graph. 21 daemon primitives + 9 composite tools (including TELA on-chain app inspection), with a bundled documentation index spanning derod, tela, hologram, and deropay.
+> **A read-only Model Context Protocol server for the DERO privacy blockchain** — a private-by-default Layer 1 with encrypted balances, private smart contracts (DVM-BASIC), and no public transaction graph. 21 daemon primitives + 11 composite tools (including TELA on-chain app inspection and dURL→SCID discovery), with a bundled documentation index spanning derod, tela, hologram, and deropay.
 
 [![MCP Registry](https://img.shields.io/badge/MCP-io.github.DHEBP%2Fdero--mcp--server-blue)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHEBP/dero-mcp-server)
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
@@ -269,7 +269,7 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHE
 
 ## MCP Surface
 
-- **Tools (30):** 21 daemon read/analysis primitives + 9 composites, including TELA app inspection (`tela_inspect`, `tela_get_doc_content`) and docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
+- **Tools (32):** 21 daemon read/analysis primitives + 11 composites, including TELA app inspection (`tela_inspect`, `tela_get_doc_content`), TELA discovery (`dero_durl_to_scid`, `dero_tela_list_apps`), and docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
 - **Resources (4):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`, `dero://mcp/composites`
 - **Prompts (5):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`, `find_dero_docs_for_intent`, `estimate_deploy_for_contract`
 

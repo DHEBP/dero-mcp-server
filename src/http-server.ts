@@ -42,7 +42,7 @@ import { createDeroMcpServer } from './server.js'
 import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
 import { docsIndexMeta } from './docs.js'
 
-const PACKAGE_VERSION = '0.4.7'
+const PACKAGE_VERSION = '0.4.8'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)

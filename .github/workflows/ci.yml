@@ -50,6 +50,9 @@ jobs:
       - name: TELA parser guard (offline)
         run: npm run check:tela-parse
 
+      - name: Gnomon discovery guard (offline)
+        run: npm run check:gnomon
+
       - name: Run flow tests
         run: npm run test:flows
         env:
