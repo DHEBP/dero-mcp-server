@@ -44,6 +44,7 @@ Get a working DERO MCP connection in under 5 minutes.
 | Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
 | Cursor | Settings → MCP → Add Server |
 | OpenCode | Settings → MCP → Add Server |
+| Codex CLI / IDE | `codex mcp add` or `~/.codex/config.toml` |
 
 Create the file if it doesn't exist.
 
@@ -220,6 +221,43 @@ In **Cursor Settings → MCP** (or OpenCode MCP settings), add a server that run
 ## OpenCode
 
 In **OpenCode MCP settings**, add a server with the same `command` / `args` / `env` as above.
+
+## Codex
+
+Codex supports DERO MCP as either a local stdio server or a streamable-HTTP server. The stdio setup is simplest for local development because Codex launches the server process for each session.
+
+Add the published npm package with:
+
+```bash
+codex mcp add dero-daemon --env DERO_DAEMON_URL=http://127.0.0.1:10102 -- npx -y dero-mcp-server
+```
+
+Replace `http://127.0.0.1:10102` with your daemon base URL when using a custom host or port. Do not include `/json_rpc`; this server appends it.
+
+Equivalent `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.dero-daemon]
+command = "npx"
+args = ["-y", "dero-mcp-server"]
+
+[mcp_servers.dero-daemon.env]
+DERO_DAEMON_URL = "http://127.0.0.1:10102"
+```
+
+A copyable example lives at [`.codex/config.example.toml`](./.codex/config.example.toml). Rename or copy it to `.codex/config.toml` only when you want a project-scoped Codex config; Codex loads project config only for trusted projects.
+
+For an already-running streamable-HTTP deployment, add the URL instead:
+
+```bash
+codex mcp add dero-daemon --url http://127.0.0.1:8787/mcp
+```
+
+If the HTTP server requires a bearer token, store the token in an environment variable and add `--bearer-token-env-var DERO_MCP_AUTH_TOKEN`.
+
+Restart Codex or start a new session, then run `/mcp` to confirm `dero-daemon` is enabled. A simple verification prompt is:
+
+> *"What's the current DERO chain height?"*
 
 ## Environment
 
