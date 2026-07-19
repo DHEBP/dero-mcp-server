@@ -15,7 +15,7 @@ export const DOC_BASE_URLS: Record<DeroDocProduct, string> = {
   derod: 'https://derod.org',
   tela: 'https://tela.derod.org',
   hologram: 'https://hologram.derod.org',
-  deropay: 'https://pay.derod.org',
+  deropay: 'https://deropay.derod.org',
 }
 
 export type DeroDocsPage = {

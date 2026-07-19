@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-07-19T20:18:49.439Z",
+  "generated_at": "2026-07-19T20:27:34.241Z",
   "page_count": 149,
   "pages": [
     {
@@ -1802,7 +1802,7 @@
       "slug": "dero-auth/api-reference",
       "title": "DeroAuth API Reference",
       "description": "Complete API reference for the dero-auth package — all exports, types, and interfaces.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/api-reference.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/api-reference.md",
       "sourcePath": "deropay-main/pages/dero-auth/api-reference.mdx",
       "headings": [
         "API Reference",
@@ -1828,7 +1828,7 @@
       "slug": "dero-auth/auth-flow",
       "title": "Authentication Flow — Challenge, Sign, Verify",
       "description": "Detailed walkthrough of the DeroAuth authentication flow: challenge generation, wallet signing, and server-side verification.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/auth-flow.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/auth-flow.md",
       "sourcePath": "deropay-main/pages/dero-auth/auth-flow.mdx",
       "headings": [
         "Authentication Flow",
@@ -1848,7 +1848,7 @@
       "slug": "dero-auth/cryptography",
       "title": "Cryptography — Schnorr Signatures on BN256",
       "description": "How DeroAuth verifies DERO wallet signatures: Schnorr on BN256, custom generator point, Keccak-256 hashing, and Bech32 address encoding.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/cryptography.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/cryptography.md",
       "sourcePath": "deropay-main/pages/dero-auth/cryptography.mdx",
       "headings": [
         "Cryptography",
@@ -1869,7 +1869,7 @@
       "slug": "dero-auth/nextjs",
       "title": "Next.js Integration — DeroAuth Route Handlers & Middleware",
       "description": "Set up DeroAuth in a Next.js 14/15 App Router project with API route handlers and auth middleware.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/nextjs.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/nextjs.md",
       "sourcePath": "deropay-main/pages/dero-auth/nextjs.mdx",
       "headings": [
         "Next.js Integration",
@@ -1890,7 +1890,7 @@
       "slug": "dero-auth/overview",
       "title": "DeroAuth Overview — Wallet-Based Authentication for DERO",
       "description": "DeroAuth enables 'Sign in with your DERO wallet' — privacy-preserving authentication using Schnorr signatures on BN256.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/overview.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/overview.md",
       "sourcePath": "deropay-main/pages/dero-auth/overview.mdx",
       "headings": [
         "DeroAuth Overview",
@@ -1909,7 +1909,7 @@
       "slug": "dero-auth/quick-start",
       "title": "DeroAuth Quick Start — Add Wallet Login",
       "description": "Add DERO wallet-based authentication to your app in minutes with dero-auth.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/quick-start.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/quick-start.md",
       "sourcePath": "deropay-main/pages/dero-auth/quick-start.mdx",
       "headings": [
         "Quick Start",
@@ -1930,7 +1930,7 @@
       "slug": "dero-auth/react",
       "title": "React Components — DeroAuth UI",
       "description": "Drop-in React components for DeroAuth: SignInWithDero button, DeroAuthProvider, and useDeroAuth hook.",
-      "canonicalUrl": "https://pay.derod.org/dero-auth/react.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-auth/react.md",
       "sourcePath": "deropay-main/pages/dero-auth/react.mdx",
       "headings": [
         "React Components",
@@ -1947,7 +1947,7 @@
       "slug": "dero-pay/agent",
       "title": "Autonomous Agent Payer — dero-pay/agent",
       "description": "The agent side of DeroPay's x402 rail: an auto-payer that settles HTTP 402 challenges under a deny-by-default spend policy, plus attenuable credentials and per-call MCP tool payments. No facilitator, no extra contract.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/agent.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/agent.md",
       "sourcePath": "deropay-main/pages/dero-pay/agent.mdx",
       "headings": [
         "Autonomous Agent Payer",
@@ -1969,7 +1969,7 @@
       "slug": "dero-pay/api-reference",
       "title": "DeroPay API Reference",
       "description": "Complete API reference for the dero-pay package — all exports, types, and interfaces.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/api-reference.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/api-reference.md",
       "sourcePath": "deropay-main/pages/dero-pay/api-reference.mdx",
       "headings": [
         "API Reference",
@@ -1996,7 +1996,7 @@
       "slug": "dero-pay/invoice-engine",
       "title": "Invoice Engine — Core Payment Orchestrator",
       "description": "The InvoiceEngine is the central component of DeroPay, coordinating invoice creation, payment monitoring, storage, and webhook dispatch.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/invoice-engine.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/invoice-engine.md",
       "sourcePath": "deropay-main/pages/dero-pay/invoice-engine.mdx",
       "headings": [
         "Invoice Engine",
@@ -2014,7 +2014,7 @@
       "slug": "dero-pay/nextjs",
       "title": "Next.js Integration — DeroPay Route Handlers & Middleware",
       "description": "Set up DeroPay in a Next.js 14/15 App Router project with ready-made API handlers and middleware.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/nextjs.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/nextjs.md",
       "sourcePath": "deropay-main/pages/dero-pay/nextjs.mdx",
       "headings": [
         "Next.js Integration",
@@ -2036,7 +2036,7 @@
       "slug": "dero-pay/overview",
       "title": "DeroPay Overview — Payment Processing for DERO",
       "description": "DeroPay is a TypeScript SDK for accepting DERO payments with invoices, payment monitoring, webhooks, escrow, and a merchant dashboard.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/overview.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/overview.md",
       "sourcePath": "deropay-main/pages/dero-pay/overview.mdx",
       "headings": [
         "DeroPay Overview",
@@ -2055,7 +2055,7 @@
       "slug": "dero-pay/payment-monitor",
       "title": "Payment Monitor — Transaction Polling & Confirmation Tracking",
       "description": "The PaymentMonitor polls the DERO wallet for incoming transactions and tracks confirmations until invoices are complete.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/payment-monitor.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/payment-monitor.md",
       "sourcePath": "deropay-main/pages/dero-pay/payment-monitor.mdx",
       "headings": [
         "Payment Monitor",
@@ -2072,7 +2072,7 @@
       "slug": "dero-pay/quick-start",
       "title": "DeroPay Quick Start — Accept DERO Payments",
       "description": "Get started with DeroPay in under 5 minutes. Create invoices, monitor payments, and handle webhooks.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/quick-start.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/quick-start.md",
       "sourcePath": "deropay-main/pages/dero-pay/quick-start.mdx",
       "headings": [
         "Quick Start",
@@ -2093,7 +2093,7 @@
       "slug": "dero-pay/react",
       "title": "React Components — Payment UI",
       "description": "Drop-in React components for DeroPay: PayWithDero button, InvoiceView, PaymentStatus, and DeroPayProvider.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/react.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/react.md",
       "sourcePath": "deropay-main/pages/dero-pay/react.mdx",
       "headings": [
         "React Components",
@@ -2113,7 +2113,7 @@
       "slug": "dero-pay/rpc",
       "title": "RPC Clients — DERO Wallet & Daemon Communication",
       "description": "DeroPay provides typed JSON-RPC clients for the DERO wallet and daemon, handling all low-level communication.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/rpc.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/rpc.md",
       "sourcePath": "deropay-main/pages/dero-pay/rpc.mdx",
       "headings": [
         "RPC Clients",
@@ -2132,7 +2132,7 @@
       "slug": "dero-pay/storage",
       "title": "Storage Backends — Invoice Persistence",
       "description": "DeroPay supports pluggable storage backends. Use in-memory for development and SQLite for production, or implement your own.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/storage.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/storage.md",
       "sourcePath": "deropay-main/pages/dero-pay/storage.mdx",
       "headings": [
         "Storage Backends",
@@ -2147,7 +2147,7 @@
       "slug": "dero-pay/webhooks",
       "title": "Webhooks — HMAC-Signed Payment Notifications",
       "description": "DeroPay sends HMAC-SHA256 signed webhooks on payment state changes. Learn how to configure and verify them.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/webhooks.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/webhooks.md",
       "sourcePath": "deropay-main/pages/dero-pay/webhooks.mdx",
       "headings": [
         "Webhooks",
@@ -2165,7 +2165,7 @@
       "slug": "dero-pay/x402",
       "title": "x402 Payment Guard — DERO-Native HTTP 402 for APIs",
       "description": "Protect API routes with HTTP 402 Payment Required. Clients pay DERO, receive a signed receipt, and retry. No accounts, no API keys, no subscriptions.",
-      "canonicalUrl": "https://pay.derod.org/dero-pay/x402.md",
+      "canonicalUrl": "https://deropay.derod.org/dero-pay/x402.md",
       "sourcePath": "deropay-main/pages/dero-pay/x402.mdx",
       "headings": [
         "x402 Payment Guard",
@@ -2197,7 +2197,7 @@
       "slug": "escrow/keeper",
       "title": "PREMINT Keeper — Pre-Minted Escrow Inventory",
       "description": "The EscrowKeeper keeps a pool of pre-minted, confirmed empty escrow boxes stocked so checkout only has to bind order terms — moving the ~1-block mint-confirm latency off the hot path.",
-      "canonicalUrl": "https://pay.derod.org/escrow/keeper.md",
+      "canonicalUrl": "https://deropay.derod.org/escrow/keeper.md",
       "sourcePath": "deropay-main/pages/escrow/keeper.mdx",
       "headings": [
         "PREMINT Keeper",
@@ -2215,7 +2215,7 @@
       "slug": "escrow/overview",
       "title": "Escrow System — Trustless On-Chain Payments",
       "description": "DeroPay includes a full escrow system with an on-chain smart contract and TypeScript SDK for trustless buyer-seller transactions.",
-      "canonicalUrl": "https://pay.derod.org/escrow/overview.md",
+      "canonicalUrl": "https://deropay.derod.org/escrow/overview.md",
       "sourcePath": "deropay-main/pages/escrow/overview.mdx",
       "headings": [
         "Escrow System",
@@ -2235,7 +2235,7 @@
       "slug": "escrow/sdk",
       "title": "Escrow TypeScript SDK — EscrowContract & EscrowManager",
       "description": "Use the dero-pay/escrow module to create, fund, release, refund, and arbitrate escrow transactions programmatically.",
-      "canonicalUrl": "https://pay.derod.org/escrow/sdk.md",
+      "canonicalUrl": "https://deropay.derod.org/escrow/sdk.md",
       "sourcePath": "deropay-main/pages/escrow/sdk.mdx",
       "headings": [
         "Escrow TypeScript SDK",
@@ -2251,7 +2251,7 @@
       "slug": "escrow/smart-contract",
       "title": "Escrow Smart Contract — On-Chain DERO Contract",
       "description": "The escrow.bas smart contract holds DERO funds in escrow with support for deposits, releases, refunds, disputes, and arbitration.",
-      "canonicalUrl": "https://pay.derod.org/escrow/smart-contract.md",
+      "canonicalUrl": "https://deropay.derod.org/escrow/smart-contract.md",
       "sourcePath": "deropay-main/pages/escrow/smart-contract.mdx",
       "headings": [
         "Escrow Smart Contract",
@@ -2269,7 +2269,7 @@
       "slug": "guides/embeddable-widget",
       "title": "Guide: Embeddable Payment Widget",
       "description": "Add a 'Pay with DERO' button to any website with a single script tag. No framework required.",
-      "canonicalUrl": "https://pay.derod.org/guides/embeddable-widget.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/embeddable-widget.md",
       "sourcePath": "deropay-main/pages/guides/embeddable-widget.mdx",
       "headings": [
         "Embeddable Payment Widget",
@@ -2293,7 +2293,7 @@
       "slug": "guides/gateway-server",
       "title": "Guide: DeroPay Gateway Server",
       "description": "Deploy the standalone DeroPay gateway server — the foundation for all ecommerce plugins, widgets, and payment links.",
-      "canonicalUrl": "https://pay.derod.org/guides/gateway-server.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/gateway-server.md",
       "sourcePath": "deropay-main/pages/guides/gateway-server.mdx",
       "headings": [
         "DeroPay Gateway Server",
@@ -2317,7 +2317,7 @@
       "slug": "guides/medusa-plugin",
       "title": "Guide: Medusa.js Payment Plugin",
       "description": "Accept DERO payments in your Medusa.js v2 store with the DeroPay payment provider plugin.",
-      "canonicalUrl": "https://pay.derod.org/guides/medusa-plugin.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/medusa-plugin.md",
       "sourcePath": "deropay-main/pages/guides/medusa-plugin.mdx",
       "headings": [
         "Medusa.js Payment Plugin",
@@ -2343,7 +2343,7 @@
       "slug": "guides/merchant-dashboard",
       "title": "Merchant Dashboard — Self-Hosted Admin UI",
       "description": "Set up and run the DeroPay merchant dashboard for invoice management, payment history, and wallet status.",
-      "canonicalUrl": "https://pay.derod.org/guides/merchant-dashboard.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/merchant-dashboard.md",
       "sourcePath": "deropay-main/pages/guides/merchant-dashboard.mdx",
       "headings": [
         "Merchant Dashboard",
@@ -2363,7 +2363,7 @@
       "slug": "guides/nextjs-auth",
       "title": "Guide: DERO Wallet Auth in Next.js",
       "description": "End-to-end guide for adding DERO wallet authentication to a Next.js 15 App Router project.",
-      "canonicalUrl": "https://pay.derod.org/guides/nextjs-auth.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/nextjs-auth.md",
       "sourcePath": "deropay-main/pages/guides/nextjs-auth.mdx",
       "headings": [
         "DERO Wallet Auth in Next.js",
@@ -2386,7 +2386,7 @@
       "slug": "guides/nextjs-payments",
       "title": "Guide: Accept DERO Payments in Next.js",
       "description": "End-to-end guide for integrating DeroPay into a Next.js 15 App Router project.",
-      "canonicalUrl": "https://pay.derod.org/guides/nextjs-payments.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/nextjs-payments.md",
       "sourcePath": "deropay-main/pages/guides/nextjs-payments.mdx",
       "headings": [
         "Accept DERO Payments in Next.js",
@@ -2407,7 +2407,7 @@
       "slug": "guides/payment-links",
       "title": "Guide: Payment Links & Hosted Checkout",
       "description": "Create shareable payment links for DERO — no website needed. Works via email, social media, QR posters, or messaging.",
-      "canonicalUrl": "https://pay.derod.org/guides/payment-links.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/payment-links.md",
       "sourcePath": "deropay-main/pages/guides/payment-links.mdx",
       "headings": [
         "Payment Links & Hosted Checkout",
@@ -2429,7 +2429,7 @@
       "slug": "guides/prerequisites",
       "title": "Prerequisites — DERO Wallet & Environment Setup",
       "description": "Set up a DERO wallet and development environment for DeroPay and DeroAuth.",
-      "canonicalUrl": "https://pay.derod.org/guides/prerequisites.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/prerequisites.md",
       "sourcePath": "deropay-main/pages/guides/prerequisites.mdx",
       "headings": [
         "Prerequisites",
@@ -2450,7 +2450,7 @@
       "slug": "guides/woocommerce",
       "title": "Guide: WooCommerce Plugin",
       "description": "Accept DERO payments on your WordPress/WooCommerce store with the DeroPay payment gateway plugin.",
-      "canonicalUrl": "https://pay.derod.org/guides/woocommerce.md",
+      "canonicalUrl": "https://deropay.derod.org/guides/woocommerce.md",
       "sourcePath": "deropay-main/pages/guides/woocommerce.mdx",
       "headings": [
         "WooCommerce Plugin",
@@ -2471,7 +2471,7 @@
       "slug": "payment-router/escrow-vs-router",
       "title": "Escrow vs. Payment Router — Which Smart Contract to Use",
       "description": "A comparison of DeroPay's two smart contracts: escrow for buyer-protected transactions and payment router for instant merchant payments.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/escrow-vs-router.md",
+      "canonicalUrl": "https://deropay.derod.org/payment-router/escrow-vs-router.md",
       "sourcePath": "deropay-main/pages/payment-router/escrow-vs-router.mdx",
       "headings": [
         "Escrow vs. Payment Router",
@@ -2489,7 +2489,7 @@
       "slug": "payment-router/overview",
       "title": "Payment Router — Instant On-Chain Payments",
       "description": "A reusable per-merchant smart contract for fast, single-transaction DERO payments with optional fee splitting.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/overview.md",
+      "canonicalUrl": "https://deropay.derod.org/payment-router/overview.md",
       "sourcePath": "deropay-main/pages/payment-router/overview.mdx",
       "headings": [
         "Payment Router",
@@ -2508,7 +2508,7 @@
       "slug": "payment-router/sdk",
       "title": "Payment Router TypeScript SDK — RouterContract & RouterManager",
       "description": "Use the dero-pay/router module to deploy payment routers, send payments, and query on-chain state programmatically.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/sdk.md",
+      "canonicalUrl": "https://deropay.derod.org/payment-router/sdk.md",
       "sourcePath": "deropay-main/pages/payment-router/sdk.mdx",
       "headings": [
         "Payment Router TypeScript SDK",
@@ -2527,7 +2527,7 @@
       "slug": "payment-router/smart-contract",
       "title": "Payment Router Smart Contract — On-Chain DERO Contract",
       "description": "The payment-router.bas smart contract handles instant payment splitting between a merchant and an optional fee recipient.",
-      "canonicalUrl": "https://pay.derod.org/payment-router/smart-contract.md",
+      "canonicalUrl": "https://deropay.derod.org/payment-router/smart-contract.md",
       "sourcePath": "deropay-main/pages/payment-router/smart-contract.mdx",
       "headings": [
         "Payment Router Smart Contract",
