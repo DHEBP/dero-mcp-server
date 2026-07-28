@@ -190,7 +190,7 @@ DERO_MCP_AUTH_TOKEN=$(openssl rand -base64 48) \
 | `DERO_MCP_HTTP_HOST` | `127.0.0.1` | Listen address. Use `0.0.0.0` to bind publicly (do not without auth + TLS upstream). |
 | `DERO_MCP_AUTH_TOKEN` | unset | If set, every `/mcp` request must carry `Authorization: Bearer <token>`. Constant-time compared. |
 
-For a turnkey deploy with Caddy + auto-TLS + Docker Compose, see [`deploy/README.md`](./deploy/README.md). It's a self-hosting reference for `mcp.derod.org`-style instances — anyone can fork and run their own.
+For a turnkey deploy with Caddy + auto-TLS + Docker Compose, see [`deploy/README.md`](./deploy/README.md). It's a self-hosting reference for `mcp.derod.org`-style instances — anyone can fork and run their own. The public default daemon behind a hosted instance may use an older `GetInfo` schedule formula than CalcSupply; `verify_supply` still treats the offline schedule number as authoritative (see [Verify the Supply](https://derod.org/integrity/verify-the-supply)).
 
 The stdio transport (below) and the HTTP transport share the same underlying server factory, so the tool surface, response shapes, and error codes are identical across both.
 
