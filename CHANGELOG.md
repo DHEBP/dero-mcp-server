@@ -4,6 +4,11 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.9]
+
+### Docs
+- Refresh bundled docs index from dero-docs.
+
 ## [0.4.8]
 
 ### Added
