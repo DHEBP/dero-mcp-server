@@ -4,6 +4,14 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0]
+
+### Added
+- **`verify_supply` composite** — offline CalcSupply (premine + launch credit + epoch
+  rewards) with optional `GetInfo.total_supply` cross-check. Cites
+  `integrity/verify-the-supply` + inflation-claim. Schedule-only (not a UTXO census).
+  Tools surface 32→33 / composites 11→12.
+
 ## [0.4.9]
 
 ### Docs

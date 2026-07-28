@@ -299,6 +299,16 @@ Input Requirements:
 
 Output: \`{ query, total_matched, returned, truncated, apps:[{ scid, durl, name, install_height, doc_count }], index_meta, narrative, related_docs }\`. The first call triggers a ~10s one-time discovery scan (cached afterward). \`index_meta\` discloses how much of the chain was scanned so the answer's coverage is transparent.`,
 
+  verify_supply: `Composite: recompute DERO total supply offline via CalcSupply (premine + one-time launch credit + Σ CalcBlockReward epochs — DEROFDN community-dev / dero-docs schedule), optionally cross-check against DERO.GetInfo.total_supply.
+
+When to call: when the user asks "what is the total supply", "does GetInfo match the schedule", "verify the supply", or wants an independent recompute that does not trust a node. PREFER this over reading GetInfo alone — GetInfo on older builds can undercount after halvings (display quirk, not inflation). PREFER citing the returned related_docs (\`integrity/verify-the-supply\`).
+
+Input Requirements:
+- \`height\` is OPTIONAL. Non-negative integer topoheight/height. Default: tip topoheight from DERO.GetInfo.
+- If the daemon is unreachable you MUST pass \`height\` — otherwise the tool returns RPC_UNREACHABLE / INVALID_INPUT.
+
+Output: \`{ height, height_source, calc_supply_atoms, calc_supply_dero, block_reward_atoms, block_reward_dero, getinfo_total_supply, match, formula_note, narrative, related_docs, _diagnostics }\`. \`match\` is true/false when GetInfo.total_supply is present, else null. Scope is schedule CalcSupply only — NOT a UTXO census.`,
+
   diagnose_chain_health: `Composite: run a four-step chain (DERO.Ping → DERO.GetInfo → DERO.GetHeight → DERO.GetTxPool) and return a single narrative health report with chain metadata, mempool snapshot, machine-readable signals, and curated docs citations.
 
 When to call: as the first step in any chain-state investigation when the user asks "is the node healthy", "is it synced", or "what is the current state of the chain". PREFER this over chaining the four primitives yourself — the composite handles partial-failure modes and lag-depth classification consistently, and the response already cites the right docs page.

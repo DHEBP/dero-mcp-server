@@ -189,10 +189,11 @@ Worked examples for common multi-step requests. Use these as a starting point; a
 
 User prompt: *"Audit the claim that DERO's total supply has been correctly minted at the current chain tip."*
 
-1. Call `audit_chain_artifact_claim` with the claim text — it returns a narrative + cited daemon state + related docs.
-2. If the composite is unavailable, fall back: `dero_get_info` (to get tip metadata), `dero_get_last_block_header` (to verify tip), `dero_docs_search` for "supply integrity" / "inflation claim", then synthesize manually.
-3. Cite both the daemon state (block height + topoheight at audit time) AND the docs page used.
-4. Surface any counter-evidence in the docs — never round off contradictions.
+1. Call `verify_supply` (optional `height`; default tip) — offline CalcSupply vs optional `GetInfo.total_supply`, with citations to Verify-the-Supply.
+2. If you need artifact-level rebuttal (proof strings / flagged TXs), call `audit_chain_artifact_claim` with the claim text or hashes.
+3. Fallback if composites unavailable: `dero_get_info` + `dero_docs_search` for "verify the supply" / "CalcSupply", then synthesize manually.
+4. Cite both the daemon state (height + total_supply at audit time) AND the docs page used.
+5. Surface mismatches honestly — older GetInfo linear undercounts are a display quirk, not inflation. Never claim a UTXO census.
 
 ### Recipe: Explain and pre-flight a smart contract
 

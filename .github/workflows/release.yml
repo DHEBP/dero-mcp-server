@@ -61,6 +61,7 @@ jobs:
       - run: npm run check:proof-roundtrip
       - run: npm run check:tx-parse
       - run: npm run check:forge-demo
+      - run: npm run check:verify-supply
 
       - name: Smoke + flow tests
         env:

@@ -1139,6 +1139,102 @@ async function flowAuditCited2022WithForgeDemo(client: Client): Promise<void> {
   )
 }
 
+/**
+ * flow-verify-supply — offline CalcSupply + optional GetInfo cross-check.
+ *
+ * Asserts:
+ *  - With an explicit height, calc_supply_dero matches the known fixture.
+ *  - Citations include integrity/verify-the-supply.
+ *  - Tip call returns height_source=getinfo_tip, match boolean|null, narrative.
+ */
+async function flowVerifySupply(client: Client): Promise<void> {
+  const fixed = await client.callTool({
+    name: 'verify_supply',
+    arguments: { height: 7_394_056 },
+  })
+  const fixedPayload = parseFirstTextJson(
+    fixed as { content: Array<{ type: string; text?: string }> },
+  ) as {
+    height?: number
+    height_source?: string
+    calc_supply_dero?: number
+    calc_supply_atoms?: number
+    getinfo_total_supply?: number | null
+    match?: boolean | null
+    formula_note?: string
+    narrative?: string
+    related_docs?: Citation[]
+  }
+
+  if (fixedPayload.height !== 7_394_056) {
+    throw new Error(`verify_supply: expected height 7394056, got ${fixedPayload.height}`)
+  }
+  if (fixedPayload.height_source !== 'provided') {
+    throw new Error(`verify_supply: expected height_source=provided, got ${fixedPayload.height_source}`)
+  }
+  if (fixedPayload.calc_supply_dero !== 16_710_143) {
+    throw new Error(
+      `verify_supply: calc_supply_dero fixture miss (${fixedPayload.calc_supply_dero})`,
+    )
+  }
+  if (typeof fixedPayload.formula_note !== 'string' || !fixedPayload.formula_note.includes('CalcSupply')) {
+    throw new Error('verify_supply: formula_note missing CalcSupply')
+  }
+  if (typeof fixedPayload.narrative !== 'string' || fixedPayload.narrative.length < 40) {
+    throw new Error('verify_supply: narrative too short')
+  }
+  if (!Array.isArray(fixedPayload.related_docs) || fixedPayload.related_docs.length === 0) {
+    throw new Error('verify_supply: related_docs missing')
+  }
+  const slugs = fixedPayload.related_docs.map((c) => c.slug)
+  if (!slugs.includes('integrity/verify-the-supply')) {
+    throw new Error(`verify_supply: missing verify-the-supply citation (got ${slugs.join(',')})`)
+  }
+  if (!slugs.includes('integrity/inflation-claim')) {
+    throw new Error(`verify_supply: missing inflation-claim citation (got ${slugs.join(',')})`)
+  }
+  for (const cite of fixedPayload.related_docs) {
+    assertCitation(cite, 'verify_supply.related_docs')
+  }
+
+  console.log(
+    `OK  flow-verify-supply (height=${fixedPayload.height}, calc=${fixedPayload.calc_supply_dero}, match=${fixedPayload.match}, citations=${fixedPayload.related_docs.length})`,
+  )
+
+  const tip = await client.callTool({
+    name: 'verify_supply',
+    arguments: {},
+  })
+  const tipPayload = parseFirstTextJson(
+    tip as { content: Array<{ type: string; text?: string }> },
+  ) as {
+    height?: number
+    height_source?: string
+    calc_supply_dero?: number
+    match?: boolean | null
+    getinfo_total_supply?: number | null
+  }
+  if (tipPayload.height_source !== 'getinfo_tip') {
+    throw new Error(`verify_supply tip: expected height_source=getinfo_tip, got ${tipPayload.height_source}`)
+  }
+  if (typeof tipPayload.height !== 'number' || tipPayload.height < 1) {
+    throw new Error('verify_supply tip: height missing')
+  }
+  if (typeof tipPayload.calc_supply_dero !== 'number') {
+    throw new Error('verify_supply tip: calc_supply_dero missing')
+  }
+  if (tipPayload.getinfo_total_supply === null || tipPayload.getinfo_total_supply === undefined) {
+    throw new Error('verify_supply tip: expected getinfo_total_supply from live daemon')
+  }
+  if (typeof tipPayload.match !== 'boolean') {
+    throw new Error(`verify_supply tip: expected boolean match, got ${tipPayload.match}`)
+  }
+
+  console.log(
+    `OK  flow-verify-supply (tip height=${tipPayload.height}, calc=${tipPayload.calc_supply_dero}, getinfo=${tipPayload.getinfo_total_supply}, match=${tipPayload.match})`,
+  )
+}
+
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[test:composites] daemon=${daemonUrl}`)
@@ -1162,6 +1258,7 @@ async function main(): Promise<void> {
     await client.connect(transport)
 
     await flowDiagnoseChainHealth(client)
+    await flowVerifySupply(client)
     await flowExplainNameRegistry(client)
     await flowTelaInspectNotTela(client)
     await flowTelaDocContentGzip(client)

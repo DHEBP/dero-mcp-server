@@ -282,7 +282,7 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHE
 
 ## MCP Surface
 
-- **Tools (32):** 21 daemon read/analysis primitives + 11 composites, including TELA app inspection (`tela_inspect`, `tela_get_doc_content`), TELA discovery (`dero_durl_to_scid`, `dero_tela_list_apps`), and docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
+- **Tools (33):** 21 daemon read/analysis primitives + 12 composites, including `verify_supply` (offline CalcSupply), TELA app inspection (`tela_inspect`, `tela_get_doc_content`), TELA discovery (`dero_durl_to_scid`, `dero_tela_list_apps`), and docs retrieval (`dero_docs_search`, `dero_docs_get_page`, `dero_docs_list`)
 - **Resources (4):** `dero://mcp/server-info`, `dero://mcp/safety-boundary`, `dero://mcp/example-flows`, `dero://mcp/composites`
 - **Prompts (5):** `network_health_check`, `inspect_smart_contract`, `trace_transaction`, `find_dero_docs_for_intent`, `estimate_deploy_for_contract`
 

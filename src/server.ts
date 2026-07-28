@@ -23,6 +23,10 @@ import {
   diagnoseChainHealthInputSchema,
 } from './composites/diagnose-chain-health.js'
 import {
+  verifySupply,
+  verifySupplyInputSchema,
+} from './composites/verify-supply.js'
+import {
   explainSmartContract,
   explainSmartContractInputSchema,
 } from './composites/explain-smart-contract.js'
@@ -322,7 +326,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     deroJsonRpc<T>(endpoint, method, params)
   const server = new McpServer({
     name: 'dero-daemon-mcp',
-    version: '0.4.9',
+    version: '0.5.0',
   })
 
   server.registerTool(
@@ -774,6 +778,15 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
   // (input schema, internal chain, response shape, failure modes, flow test ID).
 
   server.registerTool(
+    'verify_supply',
+    readOnly({
+      description: TOOL_DESCRIPTIONS.verify_supply,
+      inputSchema: verifySupplyInputSchema,
+    }),
+    withStructuredErrors('verify_supply', async (args) => verifySupply(rpc, args ?? {})),
+  )
+
+  server.registerTool(
     'diagnose_chain_health',
     readOnly({
       description: TOOL_DESCRIPTIONS.diagnose_chain_health,
@@ -897,7 +910,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: JSON.stringify(
             {
               name: 'dero-daemon-mcp',
-              version: '0.4.9',
+              version: '0.5.0',
               mode: 'read-only',
               endpoint: endpoint,
               docs_products: DERO_DOC_PRODUCTS,
@@ -970,6 +983,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
             '## Composites (preferred)',
             '',
             '- **Network health**: call `diagnose_chain_health` (no args). Returns narrative + signals + citations in one shot.',
+            '- **Verify supply**: call `verify_supply` (optional height). Offline CalcSupply vs optional GetInfo.total_supply; cites integrity/verify-the-supply.',
             `- **Inspect a contract**: call \`explain_smart_contract\` with the SCID. For example, the name registry: \`${NAME_REGISTRY_SCID}\`.`,
             '- **Trace a transaction**: call `trace_transaction_with_context` with the tx_hash. Handles SC install surface extraction inline.',
             '- **Find the right docs**: call `recommend_docs_path` with a natural-language intent (e.g. "deploy a TELA app"). Optional `product_hint` biases the score 1.5x toward that product.',
@@ -1002,7 +1016,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'dero_mcp_composites',
     'dero://mcp/composites',
     {
-      description: 'Catalog of the 11 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
+      description: 'Catalog of the 12 composite tools — what each replaces, when to call it, what it returns, and which structured _meta.error codes it can emit. Read this when picking between a composite and a primitive.',
       mimeType: 'application/json',
     },
     async (uri) => ({
@@ -1015,6 +1029,14 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
               version: 1,
               note: 'Composites fuse one or more daemon-read primitives with bundled-docs lookups and emit a single narrative + curated related_docs. Always prefer the composite when its intent matches the user request.',
               composites: [
+                {
+                  name: 'verify_supply',
+                  replaces: ['manual CalcSupply recompute + dero_get_info cross-check'],
+                  when_to_call: 'User asks "what is total supply", "verify the supply", or whether GetInfo.total_supply matches the schedule.',
+                  inputs: { height: 'optional non-negative int; default GetInfo tip topoheight' },
+                  output_highlights: ['calc_supply_dero / atoms', 'getinfo_total_supply', 'match', 'formula_note', 'narrative', 'related_docs'],
+                  error_codes: ['RPC_UNREACHABLE', 'INVALID_INPUT'],
+                },
                 {
                   name: 'diagnose_chain_health',
                   replaces: ['dero_daemon_ping', 'dero_get_info', 'dero_get_height', 'dero_get_tx_pool'],

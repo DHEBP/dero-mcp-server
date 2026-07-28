@@ -115,6 +115,18 @@ export const RELATED_DOCS_BY_TOOL: Record<string, readonly RelatedDocsEntry[]> =
       title: 'Create, Deploy & Use a Smart Contract on DERO | Step-by-Step Tutorial',
     },
   ],
+  verify_supply: [
+    {
+      product: 'derod',
+      slug: 'integrity/verify-the-supply',
+      title: "Verify the Supply: Recompute DERO's Total from the Schedule | DERO Blockchain",
+    },
+    {
+      product: 'derod',
+      slug: 'integrity/inflation-claim',
+      title: 'The 2022 Inflation Claim: Claims vs. Evidence | DERO Blockchain',
+    },
+  ],
   diagnose_chain_health: [
     {
       product: 'derod',
