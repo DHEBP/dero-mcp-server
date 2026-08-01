@@ -5,3 +5,7 @@ dist/
 .env.*
 !.env.example
 !deploy/.env.example
+
+# Local tooling / OS junk
+.claude/
+.DS_Store
