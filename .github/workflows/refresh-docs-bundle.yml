@@ -79,6 +79,14 @@ jobs:
             echo "Docs index unchanged — nothing to commit."
             exit 0
           fi
+          # Ignore timestamp-only churn: skip when the ONLY change is generated_at.
+          SUBSTANTIVE=$(git diff -U0 -- data/docs-index.json \
+            | grep -E '^[+-]' | grep -vE '^[+-]{3} ' | grep -vE '"generated_at"' || true)
+          if [ -z "$SUBSTANTIVE" ]; then
+            echo "Only the generated_at timestamp changed — skipping commit."
+            git checkout -- data/docs-index.json
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/docs-index.json
