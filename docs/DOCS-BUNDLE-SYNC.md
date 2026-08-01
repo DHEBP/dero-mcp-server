@@ -10,16 +10,14 @@ vs. manual, the secrets involved, and how to recover when something breaks.
 ## The pipeline at a glance
 
 ```
- dero-docs edit ──auto──▶ refresh PR on mcp-server ──manual──▶ release ──auto──▶ npm + VPS
-   (.mdx)                  (rebuilt index)            (merge,        (tag)        (live docs)
-                                                       bump, tag)
+ dero-docs edit ──auto──▶ index committed to main ──manual──▶ release ──auto──▶ npm + VPS
+   (.mdx)                  (rebuilt index)             (bump, tag)     (tag)        (live docs)
 ```
 
 | Step | Automated? | Mechanism |
 |------|-----------|-----------|
 | dero-docs push → notify mcp-server | ✅ | `sync-mcp-docs-bundle.yml` (in dero-docs) fires a `repository_dispatch` |
-| Rebuild index, open a PR | ✅ | `refresh-docs-bundle.yml` (here) clones dero-docs, runs `build:docs`, opens "Refresh bundled docs index" |
-| Review + merge the refresh PR | ❌ manual | human content review |
+| Rebuild index, commit to main | ✅ | `refresh-docs-bundle.yml` (here) clones dero-docs, runs `build:docs` + `smoke:docs`, commits `data/docs-index.json` to main |
 | Bump version + CHANGELOG + tag | ❌ manual | `npm run release:docs` (see below) or by hand |
 | npm publish + MCP registry + VPS redeploy | ✅ | `release.yml` on the `v*` tag |
 
@@ -38,7 +36,7 @@ pinned, provenanced snapshot and the VPS stays deterministic.
 
 ## Manual recovery
 
-**Auto-sync didn't open a PR after a docs change:**
+**Auto-sync didn't update the index after a docs change:**
 1. Check `MCP_DOCS_SYNC_TOKEN` on dero-docs hasn't expired (`gh secret list -R DHEBP/dero-docs`).
 2. Manually trigger: Actions → "Refresh docs bundle" → Run workflow (Level 2), or
    `gh workflow run refresh-docs-bundle.yml -f dero_docs_ref=main`.
@@ -49,7 +47,7 @@ DERO_DOCS_ROOT=/path/to/dero-docs npm run build:docs
 npm run smoke:docs   # validates the rebuilt index, including code-fidelity probes
 ```
 
-**Cut a docs release** (after the refresh PR is merged to main):
+**Cut a docs release** (after the refreshed index is on main):
 ```
 npm run release:docs        # bumps patch, writes CHANGELOG line, tags, pushes
 # → release.yml does npm + registry + VPS from the tag
@@ -61,7 +59,7 @@ npm run release:docs        # bumps patch, writes CHANGELOG line, tags, pushes
 ```
 curl -s https://mcp.derod.org/health | jq '{version, docs_generated_at, docs_page_count}'
 ```
-Compare `docs_page_count` / `docs_generated_at` against the latest refresh PR to
+Compare `docs_page_count` / `docs_generated_at` against the committed index to
 confirm the live server isn't serving a stale bundle.
 
 ## Gotchas
