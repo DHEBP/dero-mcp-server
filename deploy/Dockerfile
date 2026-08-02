@@ -3,13 +3,14 @@
 # control which release ships; default tracks the current major.
 #
 # Build:
-#   docker build -t dero-mcp-server:0.2.4 --build-arg DERO_MCP_VERSION=0.2.4 .
+#   VERSION=<published-version>
+#   docker build -t dero-mcp-server:${VERSION} --build-arg DERO_MCP_VERSION=${VERSION} .
 #
 # Run (standalone — Caddy normally fronts this, see docker-compose.yml):
 #   docker run --rm -p 8787:8787 \
 #     -e DERO_DAEMON_URL=http://your-daemon:10102 \
 #     -e DERO_MCP_HTTP_HOST=0.0.0.0 \
-#     dero-mcp-server:0.2.4
+#     dero-mcp-server:${VERSION}
 
 FROM node:22-alpine
 

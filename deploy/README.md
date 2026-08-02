@@ -74,14 +74,14 @@ docker compose logs -f caddy
 
 # 5. Smoke test.
 curl https://${DOMAIN}/health
-#    → {"status":"ok","name":"dero-daemon-mcp","version":"0.2.4",...}
+#    → {"status":"ok","name":"dero-daemon-mcp","version":"<configured release>",...}
 
 curl -X POST https://${DOMAIN}/mcp \
   -H 'authorization: Bearer YOUR_TOKEN' \
   -H 'content-type: application/json' \
   -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-#    → SSE stream with the tools/list result. ~28 tools.
+#    → SSE stream with the current tools/list result.
 ```
 
 ---

@@ -18,8 +18,8 @@
  *
  * It also asserts the human-facing surface counts (tools / resources /
  * prompts) in server.json's registry description and README's "MCP Surface"
- * section match the exported source-of-truth arrays — so adding a tool
- * forces the docs to update or CI fails.
+ * section match the exported source-of-truth arrays. It also keeps SKILL.md's
+ * composite count aligned with the server's composite resource description.
  *
  * Run via `npm run check:server-json`.
  */
@@ -102,6 +102,8 @@ async function checkSurfaceCounts(): Promise<boolean> {
 
   const serverJson = await readFile(path.join(ROOT, 'server.json'), 'utf-8')
   const readme = await readFile(path.join(ROOT, 'README.md'), 'utf-8')
+  const serverSource = await readFile(path.join(ROOT, 'src', 'server.ts'), 'utf-8')
+  const skill = await readFile(path.join(ROOT, 'SKILL.md'), 'utf-8')
 
   type SurfaceCheck = { label: string; ok: boolean; detail: string }
   const checks: SurfaceCheck[] = []
@@ -138,6 +140,16 @@ async function checkSurfaceCounts(): Promise<boolean> {
     label: `README "Prompts (${promptCount})"`,
     ok: new RegExp(`\\*\\*Prompts \\(${promptCount}\\)`).test(readme),
     detail: `expected "**Prompts (${promptCount})" in README MCP Surface`,
+  })
+
+  const compositeCount = serverSource.match(/Catalog of the (\d+) composite tools/)?.[1]
+  checks.push({
+    label: 'SKILL composite count matches server resource',
+    ok: compositeCount !== undefined
+      && new RegExp(`full catalog of the ${compositeCount} composite tools`).test(skill),
+    detail: compositeCount
+      ? `expected "full catalog of the ${compositeCount} composite tools" in SKILL.md`
+      : 'could not extract the composite count from src/server.ts',
   })
 
   // The bundled docs index ships the derod.org "tools/mcp-server" page, which

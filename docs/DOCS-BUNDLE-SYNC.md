@@ -1,7 +1,7 @@
 # Docs Bundle Sync — how dero-docs reaches the MCP server and the VPS
 
 This server ships a prebuilt search index of the DERO docs
-(`data/docs-index.json`, ~147 pages) so the `dero_docs_*` tools answer
+(`data/docs-index.json`) so the `dero_docs_*` tools answer
 in-process with no network round trip. That index is generated from the
 **dero-docs** repo (the Nextra site behind derod.org) and travels inside the
 published npm package. This doc explains the full pipeline, what's automated

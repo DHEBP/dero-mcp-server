@@ -39,7 +39,7 @@ Before answering the first user question that needs DERO knowledge, read the MCP
 
 1. `dero://mcp/server-info` — server metadata, tool list, resource list, prompt names
 2. `dero://mcp/example-flows` — agent flow recipes (composites first, primitives second)
-3. `dero://mcp/composites` — full catalog of the 11 composite tools and when to use each
+3. `dero://mcp/composites` — full catalog of the 12 composite tools and when to use each
 4. `dero://mcp/safety-boundary` — read-only posture, excluded methods, write-path guidance
 
 These four resources document the canonical agent workflows. Skim them once per session.
