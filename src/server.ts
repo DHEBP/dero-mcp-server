@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { deroJsonRpc, jsonRpcEndpoint } from './rpc.js'
 import {
@@ -326,7 +326,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     deroJsonRpc<T>(endpoint, method, params)
   const server = new McpServer({
     name: 'dero-daemon-mcp',
-    version: '0.5.2',
+    version: '0.6.0',
   })
 
   server.registerTool(
@@ -574,7 +574,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
       description: TOOL_DESCRIPTIONS.dero_get_gas_estimate,
       inputSchema: {
         transfers: z
-          .array(z.record(z.unknown()))
+          .array(z.record(z.string(), z.unknown()))
           .optional()
           .describe('Optional transfer list'),
         sc: z.string().optional().describe('SC source to deploy'),
@@ -910,7 +910,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           text: JSON.stringify(
             {
               name: 'dero-daemon-mcp',
-              version: '0.5.2',
+              version: '0.6.0',
               mode: 'read-only',
               endpoint: endpoint,
               docs_products: DERO_DOC_PRODUCTS,
@@ -1142,7 +1142,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'network_health_check',
     {
       description: 'Guide the model through a DERO daemon sync and health check using the diagnose_chain_health composite.',
-      argsSchema: {
+      argsSchema: z.object({
         // MCP prompt arguments arrive as strings (the SDK validates raw
         // string values against this schema with no coercion), so a plain
         // z.number() can never validate. Coerce the string to a number here.
@@ -1151,7 +1151,7 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
           .int()
           .positive()
           .optional(),
-      },
+      }),
     },
     async ({ reference_topoheight }) => ({
       description: 'Prompt for sync health investigation (composite-first).',
@@ -1183,9 +1183,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'inspect_smart_contract',
     {
       description: 'Inspect a DERO contract via the explain_smart_contract composite (function surface + classification + curated DVM docs).',
-      argsSchema: {
+      argsSchema: z.object({
         scid: hex64Schema,
-      },
+      }),
     },
     async ({ scid }) => ({
       description: 'Prompt for smart contract inspection (composite-first).',
@@ -1214,9 +1214,9 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'trace_transaction',
     {
       description: 'Trace one transaction via the trace_transaction_with_context composite (confirmation + kind classification + SC install surface).',
-      argsSchema: {
+      argsSchema: z.object({
         tx_hash: hex64Schema,
-      },
+      }),
     },
     async ({ tx_hash }) => ({
       description: 'Prompt for transaction tracing (composite-first).',
@@ -1246,10 +1246,10 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'find_dero_docs_for_intent',
     {
       description: 'Find the right DERO documentation page(s) for a natural-language intent via the recommend_docs_path composite.',
-      argsSchema: {
+      argsSchema: z.object({
         intent: z.string().min(3, 'Provide a short intent like "deploy a TELA app" or "estimate gas"'),
         product_hint: z.enum(DERO_DOC_PRODUCTS).optional(),
-      },
+      }),
     },
     async ({ intent, product_hint }) => ({
       description: 'Prompt for routing an agent intent to the right DERO docs.',
@@ -1278,12 +1278,12 @@ export function createDeroMcpServer(daemonBaseUrl: string): McpServer {
     'estimate_deploy_for_contract',
     {
       description: 'Run gas pre-flight for a DVM-BASIC contract source via the estimate_deploy_cost composite (numeric estimate + plain-text breakdown + parsed surface).',
-      argsSchema: {
+      argsSchema: z.object({
         sc_source: z.string().min(20, 'Provide DVM-BASIC contract source (at minimum: a Function/End Function block)'),
         // Prompt arguments are always strings, so a z.boolean() can never
         // validate. Accept the string 'true' | 'false' and interpret below.
         include_breakdown: z.enum(['true', 'false']).optional(),
-      },
+      }),
     },
     async ({ sc_source, include_breakdown }) => ({
       description: 'Prompt for DVM deploy pre-flight (composite-first).',

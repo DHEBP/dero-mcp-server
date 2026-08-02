@@ -17,9 +17,8 @@
  *   npm run test:composites -- --daemon-url=http://127.0.0.1:10102
  *   DERO_DAEMON_URL=http://... npm run test:composites
  */
-
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { Client } from '@modelcontextprotocol/client'
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 
 const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
 const MIN_NARRATIVE_LENGTH = 80

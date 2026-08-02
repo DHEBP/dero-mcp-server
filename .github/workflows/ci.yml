@@ -39,7 +39,10 @@ jobs:
       - name: MCP smoke probes
         run: npm run smoke:mcp
         env:
-          DERO_DAEMON_URL: ${{ secrets.DERO_DAEMON_URL || '' }}
+          DERO_DAEMON_URL: http://127.0.0.1:1
+
+      - name: HTTP smoke probes
+        run: npm run smoke:http
 
       - name: Docs smoke probes
         run: npm run smoke:docs

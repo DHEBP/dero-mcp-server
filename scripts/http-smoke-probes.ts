@@ -6,7 +6,7 @@
  *
  * Checks:
  *   1. /health returns 200 with version + transport=streamable-http
- *   2. POST /mcp with tools/list returns the expected tool count + names
+ *   2. 2025 and 2026-07-28 clients see the same tools/resources/prompts
  *   3. POST /mcp without bearer returns 401 when DERO_MCP_AUTH_TOKEN is set
  *   4. Unknown paths return 404
  *
@@ -18,6 +18,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { DERO_PROMPT_NAMES, DERO_RESOURCE_URIS } from '../src/server.js'
+import { DERO_TOOL_NAMES } from '../src/tool-descriptions.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -29,8 +32,13 @@ const HOST = '127.0.0.1'
 const AUTH_TOKEN = 'smoke-test-token-do-not-use-in-production'
 const BASE_URL = `http://${HOST}:${PORT}`
 
-// Matches scripts/mcp-smoke-probes.ts — keep in sync.
-const EXPECTED_TOOL_COUNT = 28
+function assertSortedEqual(actual: string[], expected: readonly string[], label: string): void {
+  const a = [...actual].sort()
+  const e = [...expected].sort()
+  if (a.length !== e.length || a.some((value, index) => value !== e[index])) {
+    throw new Error(`${label}: expected ${e.join(', ')}, got ${a.join(', ')}`)
+  }
+}
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -57,6 +65,7 @@ function spawnServer(): ChildProcess {
       DERO_MCP_HTTP_PORT: String(PORT),
       DERO_MCP_HTTP_HOST: HOST,
       DERO_MCP_AUTH_TOKEN: AUTH_TOKEN,
+      DERO_DAEMON_URL: 'http://127.0.0.1:1',
     },
     stdio: ['ignore', 'inherit', 'inherit'],
   })
@@ -76,30 +85,53 @@ async function checkHealth(): Promise<void> {
   process.stdout.write(`  ✓ /health → 200 ${JSON.stringify(body)}\n`)
 }
 
-async function checkToolsList(): Promise<void> {
-  const res = await fetch(`${BASE_URL}/mcp`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'accept': 'application/json, text/event-stream',
-      'authorization': `Bearer ${AUTH_TOKEN}`,
+async function checkMcpClient(era: 'legacy' | 'modern'): Promise<void> {
+  let sawSessionHeader = false
+  const transport = new StreamableHTTPClientTransport(new URL(`${BASE_URL}/mcp`), {
+    authProvider: { token: async () => AUTH_TOKEN },
+    fetch: async (input, init) => {
+      const response = await fetch(input, init)
+      sawSessionHeader ||= response.headers.has('mcp-session-id')
+      return response
     },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
   })
-  if (res.status !== 200) throw new Error(`/mcp tools/list returned ${res.status}, expected 200`)
-  // Streamable HTTP responds with an SSE stream by default; the body is
-  // `event: message\ndata: {...}\n\n`. Pull the JSON out of the data: line.
-  const text = await res.text()
-  const dataLine = text.split('\n').find((l) => l.startsWith('data: '))
-  if (!dataLine) throw new Error(`/mcp tools/list: no data line in SSE response`)
-  const payload = JSON.parse(dataLine.slice('data: '.length)) as {
-    result?: { tools?: Array<{ name: string }> }
+  const client = new Client(
+    { name: `dero-http-${era}-smoke`, version: '1.0.0' },
+    era === 'modern'
+      ? { versionNegotiation: { mode: { pin: '2026-07-28' } } }
+      : {},
+  )
+
+  try {
+    await client.connect(transport)
+    if (client.getProtocolEra() !== era) {
+      throw new Error(`${era} client negotiated ${String(client.getProtocolEra())}`)
+    }
+
+    const [tools, resources, prompts] = await Promise.all([
+      client.listTools(),
+      client.listResources(),
+      client.listPrompts(),
+    ])
+    assertSortedEqual(tools.tools.map((tool) => tool.name), DERO_TOOL_NAMES, `${era} tools/list`)
+    assertSortedEqual(resources.resources.map((resource) => resource.uri), DERO_RESOURCE_URIS, `${era} resources/list`)
+    assertSortedEqual(prompts.prompts.map((prompt) => prompt.name), DERO_PROMPT_NAMES, `${era} prompts/list`)
+
+    if (era === 'modern') {
+      const parallel = await Promise.all([client.listTools(), client.listTools()])
+      for (const result of parallel) {
+        assertSortedEqual(result.tools.map((tool) => tool.name), DERO_TOOL_NAMES, 'parallel modern tools/list')
+      }
+    }
+    if (sawSessionHeader) throw new Error(`${era} stateless HTTP response included Mcp-Session-Id`)
+
+    process.stdout.write(
+      `  ✓ ${era === 'modern' ? '2026' : '2025'} HTTP client → ${tools.tools.length} tools · ${resources.resources.length} resources · ${prompts.prompts.length} prompts\n`,
+    )
+  } finally {
+    await client.close()
+    await transport.close()
   }
-  const tools = payload.result?.tools ?? []
-  if (tools.length !== EXPECTED_TOOL_COUNT) {
-    throw new Error(`/mcp tools/list: expected ${EXPECTED_TOOL_COUNT} tools, got ${tools.length}`)
-  }
-  process.stdout.write(`  ✓ POST /mcp tools/list → ${tools.length} tools\n`)
 }
 
 async function checkAuthEnforced(): Promise<void> {
@@ -136,7 +168,8 @@ async function main(): Promise<void> {
   try {
     await waitForReady()
     await checkHealth()
-    await checkToolsList()
+    await checkMcpClient('legacy')
+    await checkMcpClient('modern')
     await checkAuthEnforced()
     await checkUnknownPath()
     process.stdout.write('\n[smoke:http] OK — HTTP transport contract holds.\n')

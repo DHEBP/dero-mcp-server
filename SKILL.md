@@ -2,7 +2,7 @@
 name: dero
 description: Query the DERO privacy blockchain and its documentation through the dero-mcp-server. Use for any DERO ecosystem question — node setup, smart contracts (DVM-BASIC), wallets, TELA apps, RPC methods, ports, privacy mechanics, transaction tracing, contract inspection.
 metadata:
-  version: 0.4.4
+  version: 0.6.0
   homepage: https://derod.org
   mcp_package: dero-mcp-server
   mcp_transport: stdio | streamable-http

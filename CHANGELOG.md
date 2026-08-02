@@ -4,6 +4,22 @@ All notable changes to `dero-mcp-server` are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0]
+
+### Added
+- MCP `2026-07-28` support over stdio and stateless HTTP, while retaining the
+  existing 2025-era protocol on the same entry points.
+
+### Changed
+- Migrated to the modular MCP TypeScript SDK v2 packages and Zod 4.
+- HTTP now uses the SDK's per-request `createMcpHandler`; stdio uses
+  `serveStdio` for connection-pinned era negotiation.
+
+### Tests
+- Stdio and HTTP smoke probes cover both protocol eras, exact surface parity,
+  parallel modern HTTP requests, and absence of session headers.
+- HTTP smoke probes now run in CI without requiring a live DERO daemon.
+
 ## [0.5.2]
 
 ### Docs
