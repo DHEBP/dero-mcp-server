@@ -9,3 +9,8 @@ dist/
 # Local tooling / OS junk
 .claude/
 .DS_Store
+
+# Project-scoped Codex config. The README tells you to copy
+# .codex/config.example.toml here; that copy holds your own daemon URL and
+# stays local. The example itself is tracked, so ignore the file, not the dir.
+.codex/config.toml
