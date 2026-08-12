@@ -1,0 +1,11 @@
+# Example project-scoped Codex MCP configuration for dero-mcp-server.
+#
+# Copy this file to .codex/config.toml in a trusted project, or copy the same
+# table into ~/.codex/config.toml for a user-wide setup.
+
+[mcp_servers.dero-daemon]
+command = "npx"
+args = ["-y", "dero-mcp-server"]
+
+[mcp_servers.dero-daemon.env]
+DERO_DAEMON_URL = "http://127.0.0.1:10102"
