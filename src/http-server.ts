@@ -23,7 +23,6 @@
  *
  * Routes:
  *   POST /mcp     — MCP streamable HTTP endpoint
- *   GET  /mcp     — same (SSE compat for older clients)
  *   GET  /health  — health check {status, version, daemon_url, daemon_source}
  *   anything else → 404
  *
@@ -37,12 +36,13 @@
 import http from 'node:http'
 import { Buffer } from 'node:buffer'
 import { timingSafeEqual } from 'node:crypto'
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { toNodeHandler } from '@modelcontextprotocol/node'
+import { createMcpHandler } from '@modelcontextprotocol/server'
 import { createDeroMcpServer } from './server.js'
 import { resolveDaemonBase, describeDaemonResolution } from './daemon-base.js'
 import { docsIndexMeta } from './docs.js'
 
-const PACKAGE_VERSION = '0.5.2'
+const PACKAGE_VERSION = '0.6.0'
 
 function readEnv() {
   const port = Number.parseInt(process.env.DERO_MCP_HTTP_PORT ?? '8787', 10)
@@ -75,6 +75,14 @@ export async function startHttpServer(): Promise<void> {
   const { port, host, authToken } = readEnv()
   const resolution = await resolveDaemonBase()
   const daemonUrl = resolution.base
+  const reportHandlerError = (err: Error) => {
+    process.stderr.write(`[dero-mcp-server] http handler error: ${err.message}\n`)
+  }
+  const mcpHandler = createMcpHandler(() => createDeroMcpServer(daemonUrl), {
+    legacy: 'stateless',
+    onerror: reportHandlerError,
+  })
+  const handleMcp = toNodeHandler(mcpHandler, { onerror: reportHandlerError })
 
   const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
@@ -111,31 +119,7 @@ export async function startHttpServer(): Promise<void> {
       return
     }
 
-    // Stateless mode: fresh McpServer + transport per request. The SDK's
-    // StreamableHTTPServerTransport carries per-request state (the active
-    // response writer, SSE stream); reusing a single transport across
-    // requests wedges every request after the first. Per-request isolation
-    // also prevents request-ID collisions across concurrent clients.
-    const mcpServer = createDeroMcpServer(daemonUrl)
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-    })
-
-    res.on('close', () => {
-      transport.close().catch(() => {})
-      mcpServer.close().catch(() => {})
-    })
-
-    try {
-      await mcpServer.connect(transport)
-      await transport.handleRequest(req, res)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`[dero-mcp-server] http handler error: ${message}\n`)
-      if (!res.headersSent) {
-        send(res, 500, JSON.stringify({ error: 'internal_error' }))
-      }
-    }
+    await handleMcp(req, res)
   })
 
   await new Promise<void>((resolve) => {
@@ -152,7 +136,10 @@ export async function startHttpServer(): Promise<void> {
 
   const shutdown = (signal: string) => {
     process.stderr.write(`[dero-mcp-server] ${signal} received, shutting down\n`)
-    httpServer.close(() => process.exit(0))
+    void mcpHandler
+      .close()
+      .catch(reportHandlerError)
+      .finally(() => httpServer.close(() => process.exit(0)))
     // Hard exit after 5s if connections won't drain.
     setTimeout(() => process.exit(1), 5000).unref()
   }

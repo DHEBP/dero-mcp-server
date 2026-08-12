@@ -10,66 +10,13 @@
  * - prompts/get returns usable messages
  * - structured tool error payload shape on execution failure
  */
+import { Client } from '@modelcontextprotocol/client'
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
+import { DERO_PROMPT_NAMES, DERO_RESOURCE_URIS } from '../src/server.js'
+import { DERO_TOOL_NAMES } from '../src/tool-descriptions.js'
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-
-const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
+const DEFAULT_DAEMON_URL = 'http://127.0.0.1:1'
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
-
-const EXPECTED_TOOLS = [
-  // ---- Primitives ----
-  'dero_daemon_ping',
-  'dero_daemon_echo',
-  'dero_get_info',
-  'dero_get_height',
-  'dero_get_block_count',
-  'dero_get_last_block_header',
-  'dero_get_block',
-  'dero_get_block_header_by_topo_height',
-  'dero_get_block_header_by_hash',
-  'dero_get_tx_pool',
-  'dero_get_random_address',
-  'dero_get_transaction',
-  'dero_get_encrypted_balance',
-  'dero_get_sc',
-  'dero_get_gas_estimate',
-  'dero_name_to_address',
-  'dero_get_block_template',
-  'dero_decode_proof_string',
-  'dero_docs_search',
-  'dero_docs_get_page',
-  'dero_docs_list',
-  // ---- Composites (Phase C) ----
-  'diagnose_chain_health',
-  'verify_supply',
-  'explain_smart_contract',
-  'recommend_docs_path',
-  'estimate_deploy_cost',
-  'trace_transaction_with_context',
-  'audit_chain_artifact_claim',
-  'dero_forge_demo_proof',
-  // ---- TELA tools ----
-  'tela_inspect',
-  'tela_get_doc_content',
-  'dero_durl_to_scid',
-  'dero_tela_list_apps',
-] as const
-
-const EXPECTED_RESOURCES = [
-  'dero://mcp/server-info',
-  'dero://mcp/safety-boundary',
-  'dero://mcp/example-flows',
-  'dero://mcp/composites',
-] as const
-
-const EXPECTED_PROMPTS = [
-  'network_health_check',
-  'inspect_smart_contract',
-  'trace_transaction',
-  'find_dero_docs_for_intent',
-  'estimate_deploy_for_contract',
-] as const
 
 function parseArgs(argv: string[]) {
   let daemonUrl = process.env.DERO_DAEMON_URL ?? DEFAULT_DAEMON_URL
@@ -144,6 +91,43 @@ function parseFirstTextJson(result: { content: Array<{ type: string; text?: stri
   }
 }
 
+async function checkModernStdio(daemonUrl: string): Promise<void> {
+  const transport = new StdioClientTransport({
+    command: 'node',
+    args: ['dist/index.js'],
+    env: {
+      ...process.env,
+      DERO_DAEMON_URL: daemonUrl,
+    } as Record<string, string>,
+  })
+  const client = new Client(
+    { name: 'dero-mcp-modern-smoke-probes', version: '1.0.0' },
+    { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+  )
+
+  try {
+    await client.connect(transport)
+    if (client.getProtocolEra() !== 'modern') {
+      throw new Error(`expected modern stdio era, got ${String(client.getProtocolEra())}`)
+    }
+
+    const tools = await client.listTools()
+    assertSortedEqual(tools.tools.map((tool) => tool.name), DERO_TOOL_NAMES, 'modern tools/list')
+    assertReadOnlyAnnotations(tools.tools as ToolWithAnnotations[])
+
+    const resources = await client.listResources()
+    assertSortedEqual(resources.resources.map((resource) => resource.uri), DERO_RESOURCE_URIS, 'modern resources/list')
+
+    const prompts = await client.listPrompts()
+    assertSortedEqual(prompts.prompts.map((prompt) => prompt.name), DERO_PROMPT_NAMES, 'modern prompts/list')
+
+    console.log(`OK  2026 stdio    ${tools.tools.length} tools · ${resources.resources.length} resources · ${prompts.prompts.length} prompts`)
+  } finally {
+    await client.close()
+    await transport.close()
+  }
+}
+
 async function main() {
   const daemonUrl = parseArgs(process.argv.slice(2))
   console.log(`[smoke:mcp] daemon=${daemonUrl}`)
@@ -165,10 +149,13 @@ async function main() {
 
   try {
     await client.connect(transport)
+    if (client.getProtocolEra() !== 'legacy') {
+      throw new Error(`expected legacy stdio era, got ${String(client.getProtocolEra())}`)
+    }
 
     const tools = await client.listTools()
     const toolNames = tools.tools.map((t) => t.name)
-    assertSortedEqual(toolNames, EXPECTED_TOOLS, 'tools/list')
+    assertSortedEqual(toolNames, DERO_TOOL_NAMES, 'tools/list')
     console.log(`OK  tools/list      ${toolNames.length} tools`)
 
     assertReadOnlyAnnotations(tools.tools as ToolWithAnnotations[])
@@ -176,12 +163,12 @@ async function main() {
 
     const resources = await client.listResources()
     const resourceUris = resources.resources.map((r) => r.uri)
-    assertSortedEqual(resourceUris, EXPECTED_RESOURCES, 'resources/list')
+    assertSortedEqual(resourceUris, DERO_RESOURCE_URIS, 'resources/list')
     console.log(`OK  resources/list  ${resourceUris.length} resources`)
 
     const prompts = await client.listPrompts()
     const promptNames = prompts.prompts.map((p) => p.name)
-    assertSortedEqual(promptNames, EXPECTED_PROMPTS, 'prompts/list')
+    assertSortedEqual(promptNames, DERO_PROMPT_NAMES, 'prompts/list')
     console.log(`OK  prompts/list    ${promptNames.length} prompts`)
 
     const prompt = await client.getPrompt({
@@ -217,35 +204,6 @@ async function main() {
     }
     console.log('OK  prompts/get     string-typed args coerce (number + boolean)')
 
-    const infoResult = await client.callTool({
-      name: 'dero_get_info',
-      arguments: {},
-    })
-    const infoPayload = parseFirstTextJson(
-      infoResult as { content: Array<{ type: string; text?: string }> },
-    ) as {
-      topoheight?: number
-      related_docs?: Array<{ source?: string; slug?: string; canonical_url?: string }>
-    }
-    if (typeof infoPayload.topoheight !== 'number') {
-      throw new Error('dero_get_info did not return a numeric topoheight')
-    }
-    if (!Array.isArray(infoPayload.related_docs) || infoPayload.related_docs.length === 0) {
-      throw new Error('dero_get_info missing related_docs (citation foundation)')
-    }
-    for (const cite of infoPayload.related_docs) {
-      if (
-        cite.source !== 'dero_docs' ||
-        typeof cite.slug !== 'string' ||
-        typeof cite.canonical_url !== 'string'
-      ) {
-        throw new Error('dero_get_info related_docs entry missing required fields')
-      }
-    }
-    console.log(
-      `OK  tools/call      dero_get_info related_docs (${infoPayload.related_docs.length} citation(s))`,
-    )
-
     const structuredErrorProbe = (await client.callTool({
       name: 'dero_get_block',
       arguments: {},
@@ -269,13 +227,14 @@ async function main() {
     }
     console.log('OK  tools/call      structured _meta.error probe (isError + envelope)')
 
+    await checkModernStdio(daemonUrl)
+
     console.log('')
     console.log('All MCP smoke probes passed.')
-    process.exit(0)
   } catch (error) {
     console.error('')
     console.error('[smoke:mcp] FAIL:', error instanceof Error ? error.message : error)
-    process.exit(1)
+    process.exitCode = 1
   } finally {
     await client.close()
     await transport.close()

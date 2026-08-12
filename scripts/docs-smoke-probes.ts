@@ -4,9 +4,8 @@
  *
  * Verifies bundled docs index works with zero local clone (default npm path).
  */
-
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { Client } from '@modelcontextprotocol/client'
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 
 const PRODUCT_SAMPLES: Array<{
   product: 'derod' | 'tela' | 'hologram' | 'deropay'

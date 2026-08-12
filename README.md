@@ -1,12 +1,12 @@
 # DERO MCP server
 
-> **A read-only Model Context Protocol server for the DERO privacy blockchain** — a private-by-default Layer 1 with encrypted balances, private smart contracts (DVM-BASIC), and no public transaction graph. 21 daemon primitives + 11 composite tools (including TELA on-chain app inspection and dURL→SCID discovery), with a bundled documentation index spanning derod, tela, hologram, and deropay.
+> **A read-only Model Context Protocol server for the DERO privacy blockchain** — a private-by-default Layer 1 with encrypted balances, private smart contracts (DVM-BASIC), and no public transaction graph. 21 daemon primitives + 12 composite tools (including TELA on-chain app inspection and dURL→SCID discovery), with a bundled documentation index spanning derod, tela, hologram, and deropay.
 
 [![MCP Registry](https://img.shields.io/badge/MCP-io.github.DHEBP%2Fdero--mcp--server-blue)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.DHEBP/dero-mcp-server)
 [![CI](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/DHEBP/dero-mcp-server/actions/workflows/ci.yml)
 [![dero-mcp-server MCP server](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/DHEBP/dero-mcp-server)
 
-**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.4.4` · **Transports:** `stdio` (default, npm package) · `streamable-http` (`--http`, for self-hosting)
+**Registry listing:** `io.github.DHEBP/dero-mcp-server` · **Version:** `0.6.0` · **Transports:** `stdio` (default, npm package) · `streamable-http` (`--http`, for self-hosting)
 
 ---
 
@@ -183,6 +183,8 @@ DERO_MCP_AUTH_TOKEN=$(openssl rand -base64 48) \
   dero-mcp-server --http
 # [dero-mcp-server] HTTP listening on 127.0.0.1:8787 (POST /mcp · GET /health)
 ```
+
+Both stdio and HTTP serve MCP `2026-07-28` and retain compatibility with 2025-era clients. HTTP exchanges are stateless and do not issue `Mcp-Session-Id`; 2026 clients negotiate through `server/discover`.
 
 | Variable | Default | Description |
 |---|---|---|
