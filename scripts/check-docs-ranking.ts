@@ -49,9 +49,15 @@ async function main(): Promise<void> {
     !c1top3.some((s) => VS_TITLED.has(s)),
     `top3=${c1top3.join(', ')}`,
   )
+  // Either page answers "dero vs monero" honestly: basics/wallets is the broad
+  // comparison, privacy/stealth-addresses is the direct one (it exists to explain
+  // what DERO dropped from the Monero lineage and why). Pinning a single winner
+  // failed the moment a genuinely better page was written, so accept either and
+  // let this keep catching an off-topic page leading.
+  const C1_LEADERS = new Set(['derod/basics/wallets', 'derod/privacy/stealth-addresses'])
   assert(
-    'C1 Monero page (basics/wallets) leads',
-    c1.results[0] && `${c1.results[0].product}/${c1.results[0].slug}` === 'derod/basics/wallets',
+    'C1 a Monero-bearing page leads',
+    Boolean(c1.results[0]) && C1_LEADERS.has(`${c1.results[0].product}/${c1.results[0].slug}`),
     `#1=${c1top3[0]}`,
   )
 
