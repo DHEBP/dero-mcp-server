@@ -142,6 +142,58 @@ async function checkSurfaceCounts(): Promise<boolean> {
   type SurfaceCheck = { label: string; ok: boolean; detail: string }
   const checks: SurfaceCheck[] = []
 
+  const publicDaemon = 'https://dero.rabidmining.com'
+  const daemonDefaults = [
+    ['src/daemon-base.ts', `PUBLIC_DAEMON_BASE = '${publicDaemon}'`],
+    ['scripts/doctor.sh', `DEFAULT_URL="${publicDaemon}"`],
+    ['scripts/flow-test.ts', `DEFAULT_URL = "${publicDaemon}"`],
+    ['scripts/flow-composites.ts', `DEFAULT_DAEMON_URL = '${publicDaemon}'`],
+  ] as const
+  const daemonTexts = new Map<string, string>()
+  for (const [file, marker] of daemonDefaults) {
+    const text = await readFile(path.join(ROOT, file), 'utf-8')
+    daemonTexts.set(file, text)
+    checks.push({
+      label: `${file} uses the TLS public daemon`,
+      ok: text.includes(marker),
+      detail: `expected ${marker}`,
+    })
+  }
+  const flowTest = daemonTexts.get('scripts/flow-test.ts') ?? ''
+  const compositeTest = daemonTexts.get('scripts/flow-composites.ts') ?? ''
+  const doctor = daemonTexts.get('scripts/doctor.sh') ?? ''
+  const mcpSmoke = await readFile(path.join(ROOT, 'scripts', 'mcp-smoke-probes.ts'), 'utf-8')
+  checks.push({
+    label: 'live flows normalize and redact daemon URLs',
+    ok: ['normalizeDaemonBaseUrl', 'redactDaemonUrl', 'jsonRpcEndpoint'].every((marker) => flowTest.includes(marker)) &&
+      ['normalizeDaemonBaseUrl', 'redactDaemonUrl'].every((marker) => compositeTest.includes(marker)),
+    detail: 'flow scripts must share the runtime URL contract and never disclose query values',
+  })
+  checks.push({
+    label: 'stdio smoke normalizes and redacts daemon URLs',
+    ok: mcpSmoke.includes('normalizeDaemonBaseUrl(daemonUrl)') &&
+      mcpSmoke.includes('redactDaemonUrl(daemonUrl)'),
+    detail: 'mcp-smoke must normalize incoming daemon URLs and redact the displayed endpoint',
+  })
+  checks.push({
+    label: 'doctor preserves queries and redacts displays',
+    ok: doctor.includes('display.search = ""') && doctor.includes('$RPC_URL'),
+    detail: 'doctor must preserve query parameters for RPC calls without displaying them',
+  })
+  checks.push({
+    label: 'doctor suppresses query-bearing failure bodies',
+    ok: doctor.includes('URL_HAS_QUERY') &&
+      doctor.includes('Response omitted to protect daemon URL query parameters.') &&
+      doctor.includes('show_failure_response "$ping_response"') &&
+      doctor.includes('show_failure_response "$info_response"'),
+    detail: 'doctor must not echo upstream bodies that can reflect daemon URL query credentials',
+  })
+  checks.push({
+    label: 'composite flow runner preserves transport cleanup',
+    ok: !compositeTest.includes('process.exit(') && compositeTest.includes('process.exitCode'),
+    detail: 'process.exit bypasses the finally block that closes MCP transports',
+  })
+
   // server.json description must state the tool count, e.g. "28 tools".
   const descMatch = serverJson.match(/"description":\s*"([^"]*)"/)
   const desc = descMatch?.[1] ?? ''
@@ -181,20 +233,20 @@ async function checkSurfaceCounts(): Promise<boolean> {
     detail: `expected "${skillCount} Skills-over-MCP" in description`,
   })
 
-  const publishedVersion = '0.6.0'
-  const publishedSnapshotDate = '2026-08-22'
+  const releaseVersion = packageManifest.version
   const releaseRows = [
-    `| **Tools (${toolCount})** in v0.7 | 33 | ${toolCount} |`,
-    `| **Resources (${resourceCount})** in v0.7 | 4 | ${resourceCount} |`,
-    `| **Prompts (${promptCount})** in v0.7 | 5 | ${promptCount} |`,
-    `| **Skills (${skillCount})** in v0.7 | 0 | ${skillCount} |`,
+    `| **Tools** | ${toolCount} |`,
+    `| **Resources** | ${resourceCount} |`,
+    `| **Prompts** | ${promptCount} |`,
+    `| **Skills** | ${skillCount} |`,
   ]
   checks.push({
-    label: 'README distinguishes source and published versions',
-    ok: readme.includes(`Published npm / Registry \`${publishedVersion}\``) &&
-      readme.includes(`Fork source \`${packageManifest.version}\``) &&
-      readme.includes(`**Snapshot checked:** \`${publishedSnapshotDate}\``),
-    detail: `expected dated ${publishedVersion} snapshot and source ${packageManifest.version} in the release matrix`,
+    label: 'README identifies the canonical release',
+    ok: readme.includes('**Source:** [DHEBP/dero-mcp-server](https://github.com/DHEBP/dero-mcp-server)') &&
+      readme.includes(`**Version:** \`${releaseVersion}\``) &&
+      readme.includes(`Version \`${releaseVersion}\` defines`) &&
+      !/Dirtybird99|source preview|Fork source|Published npm \/ Registry/.test(readme),
+    detail: `expected canonical DHEBP source and release version ${releaseVersion} without fork/snapshot framing`,
   })
   for (const row of releaseRows) {
     checks.push({
@@ -204,17 +256,23 @@ async function checkSurfaceCounts(): Promise<boolean> {
     })
   }
   checks.push({
-    label: `README pins npm quickstart to ${publishedVersion}`,
-    ok: readme.includes(`"args": ["-y", "dero-mcp-server@${publishedVersion}"]`) &&
+    label: `README pins npm commands to ${releaseVersion}`,
+    ok: readme.includes(`"args": ["-y", "dero-mcp-server@${releaseVersion}"]`) &&
+      readme.includes(`npx -y dero-mcp-server@${releaseVersion} --http`) &&
       !readme.includes('"args": ["-y", "dero-mcp-server"]'),
-    detail: `expected only the version-pinned dero-mcp-server@${publishedVersion} subprocess example`,
+    detail: `expected version-pinned subprocess and HTTP examples for dero-mcp-server@${releaseVersion}`,
+  })
+  checks.push({
+    label: 'README describes release daemon resolution',
+    ok: readme.includes('When `DERO_DAEMON_URL` is omitted, the server first probes `127.0.0.1:10102`') &&
+      readme.includes(publicDaemon),
+    detail: 'release quickstart must describe local-first resolution and the disclosed TLS fallback',
   })
   checks.push({
     label: 'README states the exact tool breakdown',
     ok: readme.includes('17 daemon RPC reads + 1 local proof decoder + 3 documentation tools + 12 composites'),
     detail: 'expected 17 RPC reads, 1 local decoder, 3 docs tools, and 12 composites',
   })
-
   for (const name of SKILL_NAMES) {
     checks.push({
       label: `root SKILL.md links ${name}`,

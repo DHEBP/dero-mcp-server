@@ -7,10 +7,10 @@ import {
 
 /**
  * Baked-in third-party public mainnet daemon. Last-resort fallback so the
- * server works with zero setup, but it is someone else's node — prefer a
- * local derod for privacy and trust.
+ * server works with zero setup, but it is someone else's node and may be
+ * pruned — prefer a local derod for privacy, trust, and historical data.
  */
-export const PUBLIC_DAEMON_BASE = 'http://82.65.143.182:10102'
+export const PUBLIC_DAEMON_BASE = 'https://dero.rabidmining.com'
 
 /** A derod running locally on its default RPC bind — the preferred source. */
 export const LOCAL_DAEMON_BASE = 'http://127.0.0.1:10102'
@@ -31,7 +31,7 @@ export function daemonPrivacyNotice({ base, source }: DaemonResolution): string 
     case 'env':
       return `DERO queries are sent to the configured daemon at ${displayBase}; its operator can observe request content, timing, and this MCP server's source network address.`
     case 'public':
-      return `DERO queries are sent to the third-party public fallback at ${displayBase}; its operator can observe request content, timing, and this MCP server's source network address. Run a local derod or set DERO_DAEMON_URL to an endpoint you trust for better privacy.`
+      return `DERO queries are sent to the third-party public fallback at ${displayBase}; its operator can observe request content, timing, and this MCP server's source network address. The fallback may be pruned, so historical data can be unavailable. Run a local derod or set DERO_DAEMON_URL to an endpoint you trust for better privacy and archive coverage.`
   }
 }
 
@@ -90,6 +90,6 @@ export function describeDaemonResolution({ base, source }: DaemonResolution): st
     case 'local':
       return `daemon: ${displayBase} (local node detected)`
     case 'public':
-      return `daemon: ${displayBase} (no local node found — public fallback; run your own derod for privacy)`
+      return `daemon: ${displayBase} (no local node found — public fallback, possibly pruned; run your own derod for privacy)`
   }
 }

@@ -21,6 +21,7 @@ import {
   DERO_RESOURCE_URIS,
 } from '../src/server.js'
 import { PUBLIC_DAEMON_BASE } from '../src/daemon-base.js'
+import { normalizeDaemonBaseUrl, redactDaemonUrl } from '../src/rpc.js'
 import { DERO_SKILL_URIS } from '../src/skills.js'
 import { DERO_TOOL_NAMES } from '../src/tool-descriptions.js'
 import { checkSkillParser, checkSkillsSurface } from './skill-smoke.js'
@@ -29,7 +30,7 @@ const DEFAULT_DAEMON_URL = 'http://127.0.0.1:1'
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
 
 function parseArgs(argv: string[]) {
-  let daemonUrl = process.env.DERO_DAEMON_URL ?? DEFAULT_DAEMON_URL
+  let daemonUrl = process.env.DERO_DAEMON_URL?.trim() || DEFAULT_DAEMON_URL
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if ((arg === '--daemon-url' || arg === '--url') && argv[i + 1]) {
@@ -40,7 +41,7 @@ function parseArgs(argv: string[]) {
       daemonUrl = arg.slice('--url='.length)
     }
   }
-  return daemonUrl.replace(/\/$/, '')
+  return normalizeDaemonBaseUrl(daemonUrl)
 }
 
 function assertSortedEqual(actual: string[], expected: readonly string[], label: string) {
@@ -255,7 +256,7 @@ async function checkModernStdio(daemonUrl: string): Promise<void> {
 
 async function main() {
   const daemonUrl = parseArgs(process.argv.slice(2))
-  console.log(`[smoke:mcp] daemon=${daemonUrl}`)
+  console.log(`[smoke:mcp] daemon=${redactDaemonUrl(daemonUrl)}`)
   console.log('================================')
 
   checkSkillParser()

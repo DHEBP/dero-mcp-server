@@ -12,7 +12,14 @@
  *   DERO_DAEMON_URL=http://... npx tsx scripts/flow-test.ts
  */
 
-const DEFAULT_URL = "http://82.65.143.182:10102";
+import {
+  deroJsonRpc,
+  jsonRpcEndpoint,
+  normalizeDaemonBaseUrl,
+  redactDaemonUrl,
+} from "../src/rpc.js";
+
+const DEFAULT_URL = "https://dero.rabidmining.com";
 
 type FlowStatus = "pass" | "fail" | "skip";
 type FlowResult = {
@@ -28,26 +35,7 @@ async function deroRpc<T = unknown>(
   method: string,
   params?: unknown
 ): Promise<T> {
-  const res = await fetch(`${endpoint}/json_rpc`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "1",
-      method,
-      params,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} from daemon`);
-  }
-
-  const data = await res.json();
-  if (data.error) {
-    throw new Error(`RPC error: ${JSON.stringify(data.error)}`);
-  }
-  return data.result;
+  return deroJsonRpc<T>(jsonRpcEndpoint(endpoint), method, params, { timeoutMs: 15_000 });
 }
 
 function assert(condition: unknown, message: string): void {
@@ -237,20 +225,21 @@ function formatReport(results: FlowResult[]): string {
 }
 
 async function main() {
-  const daemonUrl = (process.argv[2] || process.env.DERO_DAEMON_URL || DEFAULT_URL).replace(/\/$/, "");
-
-  console.log(`Testing daemon at: ${daemonUrl}`);
-  console.log("");
-
   try {
+    const daemonUrl = normalizeDaemonBaseUrl(
+      process.argv[2]?.trim() || process.env.DERO_DAEMON_URL?.trim() || DEFAULT_URL,
+    );
+    console.log(`Testing daemon at: ${redactDaemonUrl(daemonUrl)}`);
+    console.log("");
+
     const results = await runAllFlows(daemonUrl);
     console.log(formatReport(results));
 
     const failed = results.filter((r) => r.status === "fail").length;
-    process.exit(failed > 0 ? 1 : 0);
+    process.exitCode = failed > 0 ? 1 : 0;
   } catch (error) {
     console.error("Fatal error:", error instanceof Error ? error.message : error);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 

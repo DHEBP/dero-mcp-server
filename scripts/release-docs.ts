@@ -89,6 +89,16 @@ const edits: Array<{ file: string; find: RegExp; replace: string }> = [
     find: new RegExp(esc(`**Version:** \`${cur}\``)),
     replace: `**Version:** \`${next}\``,
   },
+  {
+    file: 'README.md',
+    find: new RegExp(esc(`Version \`${cur}\` defines`)),
+    replace: `Version \`${next}\` defines`,
+  },
+  {
+    file: 'README.md',
+    find: new RegExp(esc(`dero-mcp-server@${cur}`), 'g'),
+    replace: `dero-mcp-server@${next}`,
+  },
 ]
 for (const e of edits) {
   const p = path.join(ROOT, e.file)

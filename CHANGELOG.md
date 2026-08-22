@@ -28,6 +28,13 @@ follows [Keep a Changelog](https://keepachangelog.com/) and
 - Daemon URLs now preserve query parameters when constructing `/json_rpc`,
   reject URL userinfo credentials, and redact query values from logs,
   `/health`, server-info, and privacy notices.
+- Runtime, smoke, and diagnostic commands now share the same daemon URL
+  contract. When a daemon URL contains query parameters, RPC and doctor errors
+  retain local HTTP/RPC status context but suppress untrusted upstream details.
+- The zero-config public fallback now uses the TLS endpoint at
+  `https://dero.rabidmining.com`. Local detection and explicit
+  `DERO_DAEMON_URL` overrides still take precedence; no automatic archive
+  failover is performed.
 - Documentation pagination is UTF-8 byte-safe, and TELA decompression is
   capped at 8 MiB with a safe raw-content fallback.
 - Release metadata guards now cover the lockfile, visible README version,
@@ -42,6 +49,8 @@ follows [Keep a Changelog](https://keepachangelog.com/) and
 - Content checks cover exact byte boundaries, mid-codepoint offsets,
   reconstruction, invalid/oversized gzip, skill routing, privacy consent, and
   wallet-recovery secret handling.
+- Live composites distinguish pruned-node coverage from archive-required
+  historical transaction cases through `DERO_ARCHIVE_DAEMON_URL`.
 - A tarball smoke test installs the packed artifact under a path containing
   spaces, launches it from a foreign working directory, and verifies both MCP
   protocol eras against the package-relative skills and docs assets.

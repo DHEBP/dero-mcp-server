@@ -9,7 +9,7 @@
 #   - your own derod running on the same host (outside Docker) at
 #     http://host.docker.internal:10102  (or via host network)
 #   - a community-run public daemon
-#   - the default baked into dero-mcp-server (http://82.65.143.182:10102)
+#   - the default baked into dero-mcp-server (https://dero.rabidmining.com)
 #     when DERO_DAEMON_URL is unset
 #
 # First-time setup:

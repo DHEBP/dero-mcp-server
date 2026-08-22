@@ -1,4 +1,5 @@
 const DEFAULT_TIMEOUT_MS = 45_000
+const REDACTED = '[REDACTED]'
 
 export type JsonRpcResponse<T = unknown> = {
   jsonrpc: '2.0'
@@ -16,6 +17,7 @@ export async function deroJsonRpc<T = unknown>(
   params?: unknown,
   options?: { timeoutMs?: number },
 ): Promise<T> {
+  const protectUpstreamDetails = Boolean(parseDaemonUrl(jsonRpcUrl).search)
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const body: Record<string, unknown> = {
     jsonrpc: '2.0',
@@ -23,17 +25,27 @@ export async function deroJsonRpc<T = unknown>(
     method,
   }
   if (params !== undefined) body.params = params
+  const serializedBody = JSON.stringify(body)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(jsonRpcUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
-    const text = await res.text()
+    let res: Response
+    let text: string
+    try {
+      res = await fetch(jsonRpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: serializedBody,
+        signal: controller.signal,
+      })
+      text = await res.text()
+    } catch (error) {
+      if (!protectUpstreamDetails) throw error
+      const safe = new Error(`fetch failed: ${REDACTED}`)
+      if (error instanceof Error) safe.name = error.name
+      throw safe
+    }
     // Parse the body before honoring the HTTP status: a daemon (or proxy) can
     // return a JSON-RPC error with a non-2xx status, and that body carries the
     // specific error code (e.g. -32098 DVM compile) we want to surface. Fall
@@ -45,15 +57,19 @@ export async function deroJsonRpc<T = unknown>(
       json = undefined
     }
     if (json?.error) {
+      const code = typeof json.error.code === 'number' ? json.error.code : 'unknown'
+      const detail = protectUpstreamDetails
+        ? REDACTED
+        : `${json.error.message}${json.error.data != null ? ` ${JSON.stringify(json.error.data)}` : ''}`
       throw new Error(
-        `RPC error ${json.error.code}: ${json.error.message}${json.error.data != null ? ` ${JSON.stringify(json.error.data)}` : ''}`,
+        `RPC error ${code}: ${detail}`,
       )
     }
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`)
+      throw new Error(`HTTP ${res.status}: ${protectUpstreamDetails ? REDACTED : text.slice(0, 500)}`)
     }
     if (json === undefined) {
-      throw new Error(`Invalid JSON from node: ${text.slice(0, 200)}`)
+      throw new Error(`Invalid JSON from node: ${protectUpstreamDetails ? REDACTED : text.slice(0, 200)}`)
     }
     return json.result as T
   } finally {

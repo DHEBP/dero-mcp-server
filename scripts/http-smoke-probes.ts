@@ -17,7 +17,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { request as httpRequest } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
@@ -25,7 +25,7 @@ import { z } from 'zod'
 import { DERO_PROMPT_NAMES, DERO_RESOURCE_URIS } from '../src/server.js'
 import { DERO_TOOL_NAMES } from '../src/tool-descriptions.js'
 import { DERO_SKILL_URIS } from '../src/skills.js'
-import { jsonRpcEndpoint, normalizeDaemonBaseUrl, redactDaemonUrl } from '../src/rpc.js'
+import { deroJsonRpc, jsonRpcEndpoint, normalizeDaemonBaseUrl, redactDaemonUrl } from '../src/rpc.js'
 import { checkSkillsSurface } from './skill-smoke.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -260,6 +260,156 @@ function checkDaemonUrlSafety(): void {
     return
   }
   throw new Error('daemon URL userinfo credentials were accepted')
+}
+
+async function checkRpcErrorRedaction(): Promise<void> {
+  const encodedSecret = 'sentinel value/:'
+  const queryEncodedSecret = 'sentinel+value%2F%3A'
+  const mixedCaseEncodedSecret = 'sentinel+value%2f%3A'
+  const jsonSecret = 'sentinel"\\json'
+  const jsonEscapedSecret = JSON.stringify(jsonSecret).slice(1, -1)
+  const shortSecret = '0'
+  const boundarySecret = `boundary-${'s'.repeat(80)}`
+  let requestCount = 0
+  const daemon = createServer((request, response) => {
+    request.resume()
+    const echoedUrl = request.url ?? ''
+    const responseIndex = requestCount++
+    if (responseIndex === 0) {
+      response.statusCode = 401
+      response.end(`denied ${echoedUrl}`)
+      return
+    }
+    if (responseIndex === 1) {
+      response.statusCode = 500
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'dero-mcp',
+        error: {
+          code: -32098,
+          message: `upstream rejected ${echoedUrl}; encoded value ${mixedCaseEncodedSecret}; JSON escaped ${jsonEscapedSecret}; credential ending query-secret`,
+          data: {
+            token: URL_SECRET,
+            encoded: encodedSecret,
+            nested: [URL_SECRET, 12345],
+            [`key-${jsonSecret}`]: `value-${jsonSecret}`,
+            jsonEscaped: jsonEscapedSecret,
+            short: Number(shortSecret),
+          },
+        },
+      }))
+      return
+    }
+    if (responseIndex === 2) {
+      response.statusCode = 401
+      response.end(`${'x'.repeat(480)}${boundarySecret}`)
+      return
+    }
+    if (responseIndex === 4) {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'dero-mcp',
+        error: { code: -32098, message: 'queryless compile detail', data: { line: 7 } },
+      }))
+      return
+    }
+    response.end(`${'x'.repeat(180)}${boundarySecret}`)
+  })
+  daemon.listen(0, HOST)
+  await once(daemon, 'listening')
+  const address = daemon.address()
+  if (!address || typeof address === 'string') throw new Error('echo daemon did not bind a TCP port')
+  const endpoint = `http://${HOST}:${address.port}/rpc/json_rpc?token=${URL_SECRET}&pin=12345&encoded=${queryEncodedSecret}&json=${encodeURIComponent(jsonSecret)}&short=${shortSecret}&boundary=${boundarySecret}`
+  const forbidden = [
+    URL_SECRET,
+    'query-secret',
+    '12345',
+    encodedSecret,
+    queryEncodedSecret,
+    mixedCaseEncodedSecret,
+    jsonSecret,
+    jsonEscapedSecret,
+    `short=${shortSecret}`,
+    boundarySecret,
+    boundarySecret.slice(0, 20),
+  ]
+  try {
+    for (const [label, expected] of [
+      ['HTTP echo', 'HTTP 401'],
+      ['JSON-RPC echo', 'RPC error -32098'],
+      ['HTTP boundary', 'HTTP 401'],
+      ['invalid JSON boundary', 'Invalid JSON from node'],
+    ] as const) {
+      try {
+        await deroJsonRpc(endpoint, 'DERO.Ping')
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!message.startsWith(`${expected}:`) || !message.includes('[REDACTED]')) {
+          throw new Error(`${label} echo error lost useful context: ${message}`)
+        }
+        if (forbidden.some((secret) => message.includes(secret))) {
+          throw new Error(`${label} echo error leaked the daemon query secret`)
+        }
+        continue
+      }
+      throw new Error(`${label} echo daemon unexpectedly returned success`)
+    }
+    try {
+      await deroJsonRpc(`http://${HOST}:${address.port}/rpc/json_rpc`, 'DERO.Ping')
+      throw new Error('queryless echo daemon unexpectedly returned success')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!message.startsWith('RPC error -32098:') || !message.includes('queryless compile detail') || !message.includes('"line":7')) {
+        throw new Error(`queryless daemon error lost upstream diagnostics: ${message}`)
+      }
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => daemon.close((error) => error ? reject(error) : resolve()))
+  }
+  process.stdout.write('  ✓ query-bearing errors suppress upstream details; queryless errors preserve them\n')
+}
+
+async function checkRpcTransportBoundaries(): Promise<void> {
+  const nativeFetch = globalThis.fetch
+  const transportError = new TypeError('network failure ending query-secret', {
+    cause: new Error('native transport cause'),
+  })
+  globalThis.fetch = (async () => { throw transportError }) as typeof fetch
+  try {
+    try {
+      await deroJsonRpc('http://node.invalid/json_rpc', 'DERO.Ping')
+      throw new Error('queryless transport unexpectedly succeeded')
+    } catch (error) {
+      if (error !== transportError) {
+        throw new Error('queryless transport failure lost its native identity or cause')
+      }
+    }
+    try {
+      await deroJsonRpc(`http://node.invalid/json_rpc?token=${URL_SECRET}`, 'DERO.Ping')
+      throw new Error('query-bearing transport unexpectedly succeeded')
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== 'TypeError' || error.message !== 'fetch failed: [REDACTED]') {
+        throw new Error(`query-bearing transport failure was not safely classified: ${String(error)}`)
+      }
+    }
+  } finally {
+    globalThis.fetch = nativeFetch
+  }
+
+  const cyclic: Record<string, unknown> = {}
+  cyclic.self = cyclic
+  try {
+    await deroJsonRpc(`http://node.invalid/json_rpc?token=${URL_SECRET}`, 'DERO.Ping', cyclic)
+    throw new Error('cyclic JSON-RPC params unexpectedly serialized')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!(error instanceof TypeError) || !message.toLowerCase().includes('circular') || message.includes('fetch failed')) {
+      throw new Error(`local serialization failure was misclassified as transport: ${message}`)
+    }
+  }
+  process.stdout.write('  ✓ transport redaction preserves native queryless and local serialization errors\n')
 }
 
 async function checkNonLoopbackRequiresAllowlist(): Promise<void> {
@@ -587,6 +737,8 @@ async function checkUnknownPath(): Promise<void> {
 
 async function main(): Promise<void> {
   checkDaemonUrlSafety()
+  await checkRpcErrorRedaction()
+  await checkRpcTransportBoundaries()
   await checkNonLoopbackRequiresAllowlist()
   process.stdout.write('[smoke:http] booting dero-mcp-server --http on an ephemeral port\n')
   const { child, listening } = spawnServer()

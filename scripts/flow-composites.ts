@@ -16,11 +16,15 @@
  *   npm run test:composites
  *   npm run test:composites -- --daemon-url=http://127.0.0.1:10102
  *   DERO_DAEMON_URL=http://... npm run test:composites
+ *   DERO_ARCHIVE_DAEMON_URL=http://... npm run test:composites
  */
 import { Client } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { normalizeDaemonBaseUrl, redactDaemonUrl } from '../src/rpc.js'
 
-const DEFAULT_DAEMON_URL = 'http://82.65.143.182:10102'
+const DEFAULT_DAEMON_URL = 'https://dero.rabidmining.com'
 const MIN_NARRATIVE_LENGTH = 80
 const NAME_REGISTRY_SCID = '0000000000000000000000000000000000000000000000000000000000000001'
 // Confirmed historical transfer on the public daemon (height ~3,112,760).
@@ -36,7 +40,7 @@ const NONEXISTENT_TX_HASH =
   'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
 function parseArgs(argv: string[]): string {
-  let daemonUrl = process.env.DERO_DAEMON_URL || DEFAULT_DAEMON_URL
+  let daemonUrl = process.env.DERO_DAEMON_URL?.trim() || DEFAULT_DAEMON_URL
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if ((arg === '--daemon-url' || arg === '--url') && argv[i + 1]) {
@@ -47,7 +51,7 @@ function parseArgs(argv: string[]): string {
       daemonUrl = arg.slice('--url='.length)
     }
   }
-  return daemonUrl.replace(/\/$/, '')
+  return normalizeDaemonBaseUrl(daemonUrl)
 }
 
 function parseFirstTextJson(result: { content: Array<{ type: string; text?: string }> }): unknown {
@@ -152,6 +156,69 @@ type StructuredErrorPayload = {
   ok?: boolean
   tool?: string
   _meta?: { error?: { code?: string; hint?: string; raw?: string; retryable?: boolean } }
+}
+
+export type HistoricalFixtureAvailability = 'available' | 'missing' | 'indeterminate'
+
+export type HistoricalFixtureDecision =
+  | { action: 'run' }
+  | { action: 'skip'; reason: 'independently_confirmed_pruned' }
+  | {
+      action: 'fail'
+      reason:
+        | 'explicit_archive_miss'
+        | 'mainnet_not_confirmed'
+        | 'primitive_found_fixture'
+        | 'primitive_result_indeterminate'
+    }
+
+/**
+ * Classify the raw `dero_get_transaction` payload independently of the trace
+ * composite. A skip is allowed only for the canonical successful daemon shape
+ * containing one empty record; malformed/error responses remain indeterminate.
+ */
+export function classifyPrimitiveFixtureAvailability(payload: unknown): HistoricalFixtureAvailability {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'indeterminate'
+  const root = payload as Record<string, unknown>
+  if (root.ok === false || root.status !== 'OK' || !Array.isArray(root.txs) || root.txs.length < 1) {
+    return 'indeterminate'
+  }
+  const tx = root.txs[0]
+  if (!tx || typeof tx !== 'object' || Array.isArray(tx)) return 'indeterminate'
+  const record = tx as Record<string, unknown>
+  const rawHex = Array.isArray(root.txs_as_hex) && typeof root.txs_as_hex[0] === 'string'
+    ? root.txs_as_hex[0]
+    : undefined
+  const hasEvidence =
+    (typeof rawHex === 'string' && rawHex.length > 0) ||
+    (typeof record.as_hex === 'string' && record.as_hex.length > 0) ||
+    (typeof record.tx_hash === 'string' && record.tx_hash.length > 0) ||
+    (typeof record.valid_block === 'string' && record.valid_block.length > 0) ||
+    (typeof record.block_height === 'number' && record.block_height > 0) ||
+    record.in_pool === true ||
+    (typeof record.code === 'string' && record.code.length > 0) ||
+    (Array.isArray(record.ring) && record.ring.length > 0) ||
+    (typeof record.reward === 'number' && record.reward > 0)
+  return hasEvidence ? 'available' : 'missing'
+}
+
+/** Pure routing policy covered by the offline archive-regression check. */
+export function decideHistoricalFixtureCoverage(input: {
+  compositeAvailability: 'available' | 'missing'
+  explicitArchiveConfigured: boolean
+  mainnetConfirmed?: boolean
+  primitiveAvailability?: HistoricalFixtureAvailability
+}): HistoricalFixtureDecision {
+  if (input.compositeAvailability === 'available') return { action: 'run' }
+  if (input.explicitArchiveConfigured) return { action: 'fail', reason: 'explicit_archive_miss' }
+  if (input.mainnetConfirmed !== true) return { action: 'fail', reason: 'mainnet_not_confirmed' }
+  if (input.primitiveAvailability === 'available') {
+    return { action: 'fail', reason: 'primitive_found_fixture' }
+  }
+  if (input.primitiveAvailability !== 'missing') {
+    return { action: 'fail', reason: 'primitive_result_indeterminate' }
+  }
+  return { action: 'skip', reason: 'independently_confirmed_pruned' }
 }
 
 type ExplainSmartContractPayload = {
@@ -772,18 +839,80 @@ async function flowEstimateDeployInvalid(client: Client): Promise<void> {
  *  - `_diagnostics.sc_install_surface_attempted === false` for a
  *    non-install tx (proves the composite skipped the optional path).
  */
-async function flowTraceKnownTransfer(client: Client): Promise<void> {
+async function flowTraceKnownTransfer(
+  client: Client,
+  daemonUrl: string,
+  explicitArchiveConfigured: boolean,
+): Promise<boolean> {
   const result = await client.callTool({
     name: 'trace_transaction_with_context',
     arguments: { tx_hash: KNOWN_TRANSFER_TX_HASH },
   })
-  const payload = parseFirstTextJson(
+  const parsed = parseFirstTextJson(
     result as { content: Array<{ type: string; text?: string }> },
-  ) as TraceTxPayload
+  )
+  const structuredError = parsed as StructuredErrorPayload
+  if (structuredError.ok === false) {
+    const code = structuredError._meta?.error?.code ?? 'UNKNOWN_ERROR'
+    const detail = structuredError._meta?.error?.hint ?? structuredError._meta?.error?.raw ?? ''
+    if (code === 'TX_NOT_FOUND') {
+      let mainnetConfirmed: boolean | undefined
+      let primitiveAvailability: HistoricalFixtureAvailability | undefined
+      if (!explicitArchiveConfigured) {
+        const infoResult = await client.callTool({ name: 'dero_get_info', arguments: {} })
+        const infoPayload = parseFirstTextJson(
+          infoResult as { content: Array<{ type: string; text?: string }> },
+        ) as Record<string, unknown> & StructuredErrorPayload
+        if (infoPayload.ok === false) {
+          throw new Error(
+            `trace_transaction_with_context: ${daemonUrl} returned TX_NOT_FOUND and dero_get_info could not independently confirm mainnet`,
+          )
+        }
+        const network = typeof infoPayload.network === 'string' ? infoPayload.network.toLowerCase() : ''
+        mainnetConfirmed = infoPayload.testnet !== true && (infoPayload.testnet === false || network === 'mainnet')
+
+        const primitiveResult = await client.callTool({
+          name: 'dero_get_transaction',
+          arguments: { txs_hashes: [KNOWN_TRANSFER_TX_HASH], decode_as_json: 1 },
+        })
+        const primitivePayload = parseFirstTextJson(
+          primitiveResult as { content: Array<{ type: string; text?: string }> },
+        )
+        primitiveAvailability = classifyPrimitiveFixtureAvailability(primitivePayload)
+      }
+
+      const decision = decideHistoricalFixtureCoverage({
+        compositeAvailability: 'missing',
+        explicitArchiveConfigured,
+        mainnetConfirmed,
+        primitiveAvailability,
+      })
+      if (decision.action === 'skip') {
+        console.log(
+          `SKIP flow-trace-known-transfer (independent mainnet dero_get_info + primitive dero_get_transaction checks confirmed historical fixture absence on ${daemonUrl}; set DERO_ARCHIVE_DAEMON_URL to an archival daemon to run archive-only flows)`,
+        )
+        return false
+      }
+      const reason = {
+        explicit_archive_miss: 'the explicitly configured DERO_ARCHIVE_DAEMON_URL did not retain the required fixture',
+        mainnet_not_confirmed: 'dero_get_info did not independently confirm a mainnet daemon',
+        primitive_found_fixture: 'primitive dero_get_transaction found the fixture, indicating a trace composite regression',
+        primitive_result_indeterminate: 'primitive dero_get_transaction did not return a canonical available-or-missing result',
+      }[decision.reason]
+      throw new Error(
+        `trace_transaction_with_context: ${daemonUrl} returned TX_NOT_FOUND for known historical tx ${KNOWN_TRANSFER_TX_HASH}; ${reason}`,
+      )
+    }
+    throw new Error(
+      `trace_transaction_with_context: ${daemonUrl} returned ${code} for known historical tx ${KNOWN_TRANSFER_TX_HASH}${detail ? ` (${detail})` : ''}${code === 'TX_NOT_FOUND' ? '; configure DERO_ARCHIVE_DAEMON_URL with a daemon that retains transaction history' : ''}`,
+    )
+  }
+
+  const payload = parsed as TraceTxPayload
 
   if (payload.tx_hash !== KNOWN_TRANSFER_TX_HASH) {
     throw new Error(
-      `trace_transaction_with_context: tx_hash round-trip failed (got ${payload.tx_hash ?? '<missing>'})`,
+      `trace_transaction_with_context: ${daemonUrl} returned an unexpected payload for known historical tx (tx_hash=${payload.tx_hash ?? '<missing>'}, payload=${JSON.stringify(parsed).slice(0, 200)})`,
     )
   }
   if (payload.confirmation?.status !== 'confirmed') {
@@ -834,6 +963,7 @@ async function flowTraceKnownTransfer(client: Client): Promise<void> {
   console.log(
     `OK  flow-trace-known-transfer (status=${payload.confirmation.status}, height=${payload.confirmation.block_height}, kind=${payload.kind}, ring_groups=${payload.ring.groups}, hex_len=${payload.raw_tx_hex_length}, narrative=${payload.narrative.length}ch, citations=${payload.related_docs.length})`,
   )
+  return true
 }
 
 /**
@@ -1236,7 +1366,12 @@ async function flowVerifySupply(client: Client): Promise<void> {
 
 async function main(): Promise<void> {
   const daemonUrl = parseArgs(process.argv.slice(2))
-  console.log(`[test:composites] daemon=${daemonUrl}`)
+  const archiveInput = process.env.DERO_ARCHIVE_DAEMON_URL?.trim()
+  const archiveDaemonUrl = archiveInput ? normalizeDaemonBaseUrl(archiveInput) : undefined
+  console.log(`[test:composites] daemon=${redactDaemonUrl(daemonUrl)}`)
+  if (archiveDaemonUrl) {
+    console.log(`[test:composites] archive daemon=${redactDaemonUrl(archiveDaemonUrl)}`)
+  }
   console.log('================================')
 
   const transport = new StdioClientTransport({
@@ -1252,6 +1387,8 @@ async function main(): Promise<void> {
     name: 'dero-mcp-flow-composites',
     version: '1.0.0',
   })
+  let archiveTransport: StdioClientTransport | undefined
+  let archiveClient: Client | undefined
 
   try {
     await client.connect(transport)
@@ -1266,25 +1403,63 @@ async function main(): Promise<void> {
     await flowRecommendDocsNoMatch(client)
     await flowEstimateDeployMinimal(client)
     await flowEstimateDeployInvalid(client)
-    await flowTraceKnownTransfer(client)
     await flowTraceTxNotFound(client)
-    await flowTraceScInstallOptional(client)
-    await flowForgeDemoCited2022(client)
-    await flowForgeDemoSlot14Receiver(client)
     await flowForgeDemoInvalid(client)
-    await flowAuditCited2022WithForgeDemo(client)
+
+    let historyClient = client
+    if (archiveDaemonUrl && archiveDaemonUrl !== daemonUrl) {
+      archiveTransport = new StdioClientTransport({
+        command: 'node',
+        args: ['dist/index.js'],
+        env: {
+          ...process.env,
+          DERO_DAEMON_URL: archiveDaemonUrl,
+        } as Record<string, string>,
+      })
+      archiveClient = new Client({
+        name: 'dero-mcp-flow-composites-archive',
+        version: '1.0.0',
+      })
+      await archiveClient.connect(archiveTransport)
+      historyClient = archiveClient
+    }
+
+    const historyDaemonUrl = archiveDaemonUrl || daemonUrl
+    const hasHistoricalTx = await flowTraceKnownTransfer(
+      historyClient,
+      redactDaemonUrl(historyDaemonUrl),
+      Boolean(archiveDaemonUrl),
+    )
+    if (hasHistoricalTx) {
+      await flowTraceScInstallOptional(historyClient)
+      await flowForgeDemoCited2022(historyClient)
+      await flowForgeDemoSlot14Receiver(historyClient)
+      await flowAuditCited2022WithForgeDemo(historyClient)
+    } else {
+      console.log(
+        'SKIP archive-only composite flows (trace SC install, cited proof forging, and cited-claim audit)',
+      )
+    }
 
     console.log('')
-    console.log('All composite flow tests passed.')
-    process.exit(0)
+    console.log(`All composite flow tests passed (historical fixture: ${hasHistoricalTx ? 'available' : 'skipped'}).`)
+    process.exitCode = 0
   } catch (error) {
     console.error('')
     console.error('[test:composites] FAIL:', error instanceof Error ? error.message : error)
-    process.exit(1)
+    process.exitCode = 1
   } finally {
+    await archiveClient?.close().catch(() => {})
+    await archiveTransport?.close().catch(() => {})
     await client.close().catch(() => {})
     await transport.close().catch(() => {})
   }
 }
 
-main()
+const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : ''
+if (invokedPath === import.meta.url) {
+  main().catch((error) => {
+    console.error('[test:composites] FAIL:', error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  })
+}
