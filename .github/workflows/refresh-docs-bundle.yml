@@ -29,10 +29,17 @@ jobs:
         # The dispatch payload is attacker-influenceable, so it reaches the shell
         # as an env var, never interpolated by ${{ }} into the script body, and
         # check-ref-format rejects shell metacharacters like backticks/$()/quotes
-        # before REF is used anywhere. This closes injection, not choice: whoever
-        # can fire repository_dispatch already needs write-level creds on this
-        # repo, and a syntactically valid ref still only selects among refs that
-        # already exist in DHEBP/dero-docs — it can't inject new content there.
+        # before REF is used anywhere. This closes injection, not choice.
+        #
+        # On the repository_dispatch path we go further: the only legitimate
+        # sender (dero-docs' sync-mcp-docs-bundle.yml) always sets ref to its
+        # own ${{ github.sha }}, a 40-hex commit SHA — never a branch or tag —
+        # so we require that exact shape here. Anyone else who can fire this
+        # event (holds MCP_DOCS_SYNC_TOKEN or repo write) can therefore only
+        # point us at a commit that already exists in DHEBP/dero-docs, not pick
+        # an arbitrary branch/tag whose content could differ from what was
+        # actually pushed to main. workflow_dispatch stays branch/tag-capable
+        # since that path is a human with write access to this repo already.
         env:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_REF: ${{ github.event.client_payload.ref }}
@@ -42,12 +49,16 @@ jobs:
             REF="$DISPATCH_REF"
             if [ -z "$REF" ]; then REF="main"; fi
             SOURCE="dero-docs push (${REF})"
+            if ! [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::repository_dispatch ref must be a full commit SHA, got: $REF"
+              exit 1
+            fi
           else
             REF="$MANUAL_REF"
             if [ -z "$REF" ]; then REF="main"; fi
             SOURCE="manual workflow_dispatch (${REF})"
+            git check-ref-format --allow-onelevel "$REF" >/dev/null || { echo "::error::Invalid dero-docs ref"; exit 1; }
           fi
-          git check-ref-format --allow-onelevel "$REF" >/dev/null || { echo "::error::Invalid dero-docs ref"; exit 1; }
           printf 'ref=%s\n' "$REF" >> "$GITHUB_OUTPUT"
           printf 'source=%s\n' "$SOURCE" >> "$GITHUB_OUTPUT"
 
