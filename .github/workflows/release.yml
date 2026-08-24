@@ -27,6 +27,12 @@ jobs:
   # ── Gate: the tag must match the committed version, and the full suite
   #    (the same one CI runs) must pass before anything irreversible ships.
   verify:
+    # A forked repo's own tag push runs this workflow in the FORK's Actions
+    # context — no access to our secrets, and npm/OIDC already reject the
+    # identity claim — so this isn't closing a leak. It's belt-and-suspenders:
+    # a fork's CI minutes shouldn't burn running our release suite, and it
+    # keeps the needs chain's root condition explicit rather than implicit.
+    if: github.repository == 'DHEBP/dero-mcp-server'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,12 +104,13 @@ jobs:
           node -e "const i=require('./data/docs-index.json'); if(!i.page_count||i.page_count<1){console.error('docs-index.json has no pages');process.exit(1)} console.log('docs-index.json ok: '+i.page_count+' pages')"
       # Compile here too so a build failure surfaces before the publish call.
       - run: npm run build
-      - name: Ensure npm >= 11.5.1 (trusted publishing)
+      - name: Install pinned npm for trusted publishing
+        # Pinned, not @latest: this npm mints the OIDC credential that signs the
+        # publish, so a surprise release must not silently enter the release path.
+        # Needs >= 11.5.1 for trusted publishing; bump deliberately.
         run: |
-          npm install -g npm@latest
-          # Fail loudly if the upgrade didn't take — otherwise OIDC publish
-          # errors are cryptic instead of "npm too old".
-          node -e "const v=require('child_process').execSync('npm -v').toString().trim();const[a,b]=v.split('.').map(Number);if(a<11||(a===11&&b<5)){console.error('npm '+v+' < 11.5.1');process.exit(1)}console.log('npm '+v+' ok')"
+          npm install -g npm@11.19.0
+          test "$(npm -v)" = "11.19.0"
       - name: Publish to npm (OIDC + provenance)
         # Idempotent: if this exact version is already on npm (e.g. a re-run
         # after a later stage like registry-publish failed), skip the publish
@@ -138,8 +145,16 @@ jobs:
             *) echo "::error::server.json name '$NAME' is not under the io.github.DHEBP/* namespace"; exit 1 ;;
           esac
       - name: Install mcp-publisher
+        # Pinned + checksummed, not `latest` piped straight into tar: this binary
+        # authenticates as our registry namespace. Bump the version and the hash
+        # together.
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ASSET=mcp-publisher_linux_amd64.tar.gz
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output "$ASSET" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/$ASSET"
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  $ASSET" | sha256sum --check --strict
+          tar --extract --gzip --file "$ASSET" mcp-publisher
       - name: Authenticate (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
       - name: Publish to MCP registry
@@ -153,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Redeploy mcp.derod.org
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -161,16 +176,19 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           # ssh-action does NOT forward step-level env: into the remote shell.
           # Vars must be named here to reach the script.
-          envs: GITHUB_REF_NAME
+          envs: GITHUB_REF_NAME,GITHUB_SHA
           script: |
             set -euo pipefail
             VERSION="${GITHUB_REF_NAME#v}"
             cd /opt/dero-mcp-server
-            # Deterministic: make the checkout EXACTLY match origin/main, ignoring
-            # any local drift on the box (a `git pull` aborts on local edits).
-            # .env is gitignored, so the live config + auth token are untouched.
-            git fetch origin main
-            git reset --hard origin/main
+            # Deterministic: deploy the exact commit the pushed tag resolved to,
+            # never a later origin/main commit that raced the release. Any local
+            # drift on the box is still discarded; .env is gitignored, so the
+            # live config + auth token are untouched.
+            git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+            TAG_SHA="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+            [ "$TAG_SHA" = "$GITHUB_SHA" ] || { echo "tag SHA $TAG_SHA != workflow SHA $GITHUB_SHA"; exit 1; }
+            git reset --hard "$TAG_SHA"
             cd deploy
             # Pin the live container to the version just published to npm.
             # Operate on the real .env (compose reads it), creating it from the
@@ -196,6 +214,7 @@ jobs:
             [ -n "$ok" ] || { echo "::error::health check did not report ${VERSION} after retries"; docker logs --tail 30 "$CID" || true; exit 1; }
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
 
       # npm + registry already published by the time we deploy, so a deploy
       # failure leaves the package live but mcp.derod.org stale. Make the
