@@ -123,7 +123,7 @@ jobs:
             echo ""
             echo "**Source:** ${DOCS_SOURCE}"
             echo ""
-            echo "The index reaches npm + mcp.derod.org only after a release:"
+            echo "The index reaches npm only after a release:"
             echo "bump the version, add a CHANGELOG line, then \`git tag vX.Y.Z && git push --tags\`."
             echo "See \`docs/DOCS-BUNDLE-SYNC.md\`."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,6 @@
 # Hosted `dero-mcp-server` deployment
 
-This folder is a reference deployment for running `dero-mcp-server` as a hosted streamable-HTTP MCP server behind your own domain. The canonical instance is `https://mcp.derod.org/mcp` (DERO ecosystem); anyone is welcome to fork this and host their own.
+This folder is a reference deployment for running `dero-mcp-server` as a hosted streamable-HTTP MCP server behind your own domain. The former public instance at `mcp.derod.org` was retired on 2026-10-10 (DERO 1.0 is defunct); anyone is welcome to fork this and host their own.
 
 It is **not the only way to run dero-mcp-server.** For local development, the npm package's stdio mode (`npx dero-mcp-server`) is simpler and more private. Use this deployment when you need a remote URL for clients that don't support local subprocesses (ChatGPT Custom Connectors, Cursor hosted mode, n8n / Zapier / Make integrations, etc.).
 
@@ -202,15 +202,7 @@ This deployment ships with these defaults; understand them before exposing:
 
 ## What to do if hosted breaks
 
-Hosted MCP isn't the only path. The npm package (`npx dero-mcp-server`) gives users the full feature set running locally. If `mcp.derod.org` is down:
-
-1. Status page: (TBD — link the operator's status page here)
-2. Workaround: install via npm, point at your own daemon or a community one
-3. File an issue: https://github.com/DHEBP/dero-mcp-server/issues
-
-Document the hosted deployment's deprecation policy publicly if you ever sunset it. Suggested wording for the mcp-server-card.json description:
-
-> _`mcp.derod.org` is provided on a best-effort basis. If sunset, we commit to 90 days notice. The durable path is `npm install dero-mcp-server`._
+The public `mcp.derod.org` instance is retired. Use the npm package (`npx dero-mcp-server`), which gives the full feature set running locally, or self-host with this folder.
 
 ---
 

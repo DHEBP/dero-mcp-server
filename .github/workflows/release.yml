@@ -8,11 +8,10 @@ name: Release
 #   npm     → keyless OIDC publish + provenance (no token; trusted publisher
 #             configured on npmjs.com for repo DHEBP/dero-mcp-server + release.yml)
 #   registry→ mcp-publisher publish via github-oidc (keyless)
-#   deploy  → ssh to the VPS, pin DERO_MCP_VERSION to this release, redeploy
 #   release → GitHub Release with the CHANGELOG section as notes
 #
-# Auth model: OIDC everywhere except the VPS (SSH key secrets, unavoidable).
-# Required repo secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY, DEPLOY_PORT.
+# Auth model: OIDC everywhere (no stored secrets). The hosted mcp.derod.org
+# instance was retired 2026-10-10, so there is no VPS deploy stage.
 # One-time npmjs.com setup: package access → trusted publisher → GitHub Actions,
 #   owner dhebp, repo dero-mcp-server, workflow release.yml.
 
@@ -160,87 +159,9 @@ jobs:
       - name: Publish to MCP registry
         run: ./mcp-publisher publish
 
-  # ── Deploy: refresh the VPS config, pin DERO_MCP_VERSION to this release,
-  #    rebuild. The container installs dero-mcp-server@<version> from npm, so
-  #    this MUST run after npm-publish (enforced via needs).
-  deploy:
-    needs: [npm-publish, registry-publish]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Redeploy mcp.derod.org
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          # ssh-action does NOT forward step-level env: into the remote shell.
-          # Vars must be named here to reach the script.
-          envs: GITHUB_REF_NAME,GITHUB_SHA
-          script: |
-            set -euo pipefail
-            VERSION="${GITHUB_REF_NAME#v}"
-            cd /opt/dero-mcp-server
-            # Deterministic: deploy the exact commit the pushed tag resolved to,
-            # never a later origin/main commit that raced the release. Any local
-            # drift on the box is still discarded; .env is gitignored, so the
-            # live config + auth token are untouched.
-            git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-            TAG_SHA="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
-            [ "$TAG_SHA" = "$GITHUB_SHA" ] || { echo "tag SHA $TAG_SHA != workflow SHA $GITHUB_SHA"; exit 1; }
-            git reset --hard "$TAG_SHA"
-            cd deploy
-            # Pin the live container to the version just published to npm.
-            # Operate on the real .env (compose reads it), creating it from the
-            # template on first deploy if absent.
-            [ -f .env ] || cp .env.example .env
-            if grep -q '^DERO_MCP_VERSION=' .env; then
-              sed -i "s|^DERO_MCP_VERSION=.*|DERO_MCP_VERSION=${VERSION}|" .env
-            else
-              echo "DERO_MCP_VERSION=${VERSION}" >> .env
-            fi
-            docker compose up -d --build mcp
-            # The mcp service is expose-only (Caddy fronts it), so 8787 is not on
-            # the host — probe health INSIDE the container's namespace, and poll
-            # to tolerate Node's startup time.
-            CID="$(docker compose ps -q mcp)"
-            ok=
-            for i in $(seq 1 15); do
-              if docker exec "$CID" wget -qO- http://127.0.0.1:8787/health 2>/dev/null | grep -q "\"version\":\"${VERSION}\""; then
-                ok=1; echo "live server reports ${VERSION} (attempt $i)"; break
-              fi
-              sleep 2
-            done
-            [ -n "$ok" ] || { echo "::error::health check did not report ${VERSION} after retries"; docker logs --tail 30 "$CID" || true; exit 1; }
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_SHA: ${{ github.sha }}
-
-      # npm + registry already published by the time we deploy, so a deploy
-      # failure leaves the package live but mcp.derod.org stale. Make the
-      # failure email actionable with the recovery path.
-      - name: Report deploy failure
-        if: failure()
-        run: |
-          {
-            echo "## ❌ VPS deploy failed — npm/registry are published, but mcp.derod.org is STALE"
-            echo ""
-            echo "**Version:** ${GITHUB_REF_NAME#v}"
-            echo "**Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo ""
-            echo "The package shipped; only the live server didn't update. Recover by"
-            echo "re-running just this job once the box is fixed:"
-            echo '\`gh run rerun ${{ github.run_id }} --failed\`'
-            echo ""
-            echo "Common causes: VPS disk/inodes, Docker build, or the health check."
-            echo "See \`docs/DOCS-BUNDLE-SYNC.md\` and \`deploy/README.md\`."
-          } >> "$GITHUB_STEP_SUMMARY"
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-
   # ── GitHub Release: cut from the tag, notes pulled from CHANGELOG.md.
   github-release:
-    needs: [npm-publish, registry-publish, deploy]
+    needs: [npm-publish, registry-publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the release

@@ -1,4 +1,4 @@
-# Docs Bundle Sync — how dero-docs reaches the MCP server and the VPS
+# Docs Bundle Sync — how dero-docs reaches the MCP server
 
 This server ships a prebuilt search index of the DERO docs
 (`data/docs-index.json`) so the `dero_docs_*` tools answer
@@ -10,8 +10,8 @@ vs. manual, the secrets involved, and how to recover when something breaks.
 ## The pipeline at a glance
 
 ```
- dero-docs edit ──auto──▶ index committed to main ──manual──▶ release ──auto──▶ npm + VPS
-   (.mdx)                  (rebuilt index)             (bump, tag)     (tag)        (live docs)
+ dero-docs edit ──auto──▶ index committed to main ──manual──▶ release ──auto──▶ npm
+   (.mdx)                  (rebuilt index)             (bump, tag)     (tag)     (published docs)
 ```
 
 | Step | Automated? | Mechanism |
@@ -19,12 +19,11 @@ vs. manual, the secrets involved, and how to recover when something breaks.
 | dero-docs push → notify mcp-server | ✅ | `sync-mcp-docs-bundle.yml` (in dero-docs) fires a `repository_dispatch` |
 | Rebuild index, commit to main | ✅ | `refresh-docs-bundle.yml` (here) clones dero-docs, runs `build:docs` + `smoke:docs`, commits `data/docs-index.json` to main |
 | Bump version + CHANGELOG + tag | ❌ manual | `npm run release:docs` (see below) or by hand |
-| npm publish + MCP registry + VPS redeploy | ✅ | `release.yml` on the `v*` tag |
+| npm publish + MCP registry | ✅ | `release.yml` on the `v*` tag |
 
-**Key fact:** a docs edit does **not** reach `mcp.derod.org` until a release is
-cut. The live container installs `dero-mcp-server@<version>` from npm, so docs
-ride with the versioned package. This is intentional — npm consumers get a
-pinned, provenanced snapshot and the VPS stays deterministic.
+**Key fact:** a docs edit does **not** reach users until a release is cut. Docs ride
+with the versioned npm package, so consumers get a pinned, provenanced snapshot.
+The hosted `mcp.derod.org` instance was retired 2026-10-10.
 
 ## Secrets / config
 
@@ -32,7 +31,6 @@ pinned, provenanced snapshot and the VPS stays deterministic.
 |--------|----------|---------|-------|
 | `MCP_DOCS_SYNC_TOKEN` | **dero-docs** repo | lets dero-docs dispatch the `dero-docs-updated` event to this repo | A GitHub PAT. **PATs can expire** — if the auto-sync stops opening PRs, check this first. |
 | npm trusted publisher | npmjs.com | keyless OIDC publish | configured for `DHEBP/dero-mcp-server` + workflow `release.yml`; no token stored |
-| `DEPLOY_HOST/USER/KEY/PORT` | this repo | SSH to the VPS for redeploy | dedicated ed25519 key |
 
 ## Manual recovery
 
@@ -50,17 +48,8 @@ npm run smoke:docs   # validates the rebuilt index, including code-fidelity prob
 **Cut a docs release** (after the refreshed index is on main):
 ```
 npm run release:docs        # bumps patch, writes CHANGELOG line, tags, pushes
-# → release.yml does npm + registry + VPS from the tag
+# → release.yml does npm + registry from the tag
 ```
-
-## Verifying what's live
-
-`/health` on the running server reports the docs bundle date and page count:
-```
-curl -s https://mcp.derod.org/health | jq '{version, docs_generated_at, docs_page_count}'
-```
-Compare `docs_page_count` / `docs_generated_at` against the committed index to
-confirm the live server isn't serving a stale bundle.
 
 ## Gotchas
 
